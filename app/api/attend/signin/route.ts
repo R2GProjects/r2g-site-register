@@ -1,19 +1,55 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, create, update, findSiteByCode } from "@/lib/nocodb";
-import { getClientIP, nowISO, generateUUID } from "@/lib/auth";
-import { resolvePerson } from "@/lib/person-auth";
+import {
+  getClientIP,
+  nowISO,
+  generateUUID,
+  createWorkerSession,
+  readWorkerSession,
+  WORKER_COOKIE,
+  WORKER_MAX_AGE,
+} from "@/lib/auth";
+import { resolvePersonFromRequest } from "@/lib/person-auth";
+import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
+
+function signedInResponse(payload: Record<string, unknown>, personId: number) {
+  const resp = NextResponse.json(payload);
+  resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: WORKER_MAX_AGE,
+  });
+  return resp;
+}
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed } = await request.json();
+    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed } = await request.json();
     if (!siteCode) {
       return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
     }
 
-    const resolved = await resolvePerson({ accessToken, passcode });
+    // Only credential checks are throttled — a crew signing in from one site
+    // wifi address must not be able to lock itself out.
+    const usingSession = !accessToken && !passcode && readWorkerSession(request) !== null;
+    let limitKey = "";
+    if (!usingSession) {
+      const limit = guard(request, "attend-signin", {
+        limit: 40,
+        windowMs: 10 * MINUTE,
+        message: "Too many sign-in attempts. Wait a few minutes and try again.",
+      });
+      if (limit.blocked) return limit.blocked;
+      limitKey = limit.key;
+    }
+
+    const resolved = await resolvePersonFromRequest(request, { accessToken, mobile, passcode });
     if (!resolved.person) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status || 401 });
     }
+    if (limitKey) clearRateLimit(limitKey);
     const person = resolved.person;
     if (!person.AccessEnabled) {
       return NextResponse.json({ error: "Access disabled" }, { status: 403 });
@@ -91,13 +127,16 @@ export async function POST(request: Request) {
         (existing[0].Site as { Id?: number } | undefined)?.Id ??
         (existing[0].Sites_id as number | undefined);
       if (existingSiteId === site.Id) {
-        return NextResponse.json({
-          attendanceId: existing[0].Id,
-          person: { Id: person.Id, FirstName: person.FirstName, LastName: person.LastName },
-          site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
-          signedInAt: existing[0].SignInTime,
-          alreadyOnSite: true,
-        });
+        return signedInResponse(
+          {
+            attendanceId: existing[0].Id,
+            person: { Id: person.Id, FirstName: person.FirstName, LastName: person.LastName },
+            site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
+            signedInAt: existing[0].SignInTime,
+            alreadyOnSite: true,
+          },
+          person.Id
+        );
       }
       await update(TABLES.Attendance, {
         Id: existing[0].Id as number,
@@ -127,12 +166,15 @@ export async function POST(request: Request) {
       UpdatedAt1: now,
     });
 
-    return NextResponse.json({
-      attendanceId,
-      person: { Id: person.Id, FirstName: person.FirstName, LastName: person.LastName },
-      site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
-      signedInAt: now,
-    });
+    return signedInResponse(
+      {
+        attendanceId,
+        person: { Id: person.Id, FirstName: person.FirstName, LastName: person.LastName },
+        site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
+        signedInAt: now,
+      },
+      person.Id
+    );
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

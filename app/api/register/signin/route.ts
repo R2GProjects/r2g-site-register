@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, create, findSiteByCode, ensurePasscodeColumn } from "@/lib/nocodb";
-import { generateAccessToken, hashToken, hashPasscode, nowISO, generateUUID, getClientIP, validatePasscode } from "@/lib/auth";
+import { TABLES, create, findSiteByCode, ensurePasscodeColumn } from "@/lib/nocodb";
+import {
+  generateAccessToken,
+  hashToken,
+  hashPasscode,
+  nowISO,
+  generateUUID,
+  getClientIP,
+  normalizeMobile,
+  validatePasscode,
+  createWorkerSession,
+  WORKER_COOKIE,
+  WORKER_MAX_AGE,
+} from "@/lib/auth";
+import { resolveOrCreateCompany } from "@/lib/company";
+import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +33,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Sized for a crew onboarding from one site wifi address, not a single user.
+    const limit = guard(request, "register-signin", {
+      limit: 60,
+      windowMs: HOUR,
+      message: "Too many registrations from this connection. Try again later.",
+    });
+    if (limit.blocked) return limit.blocked;
+
     const site = await findSiteByCode(
       siteCode,
       "Id,SiteUUID,SiteName,SiteCode,Status,RequiresInduction"
@@ -30,33 +52,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Site is not active" }, { status: 400 });
     }
 
-    // Resolve or create company
-    let companyRowId: number | null = null;
-    if (companyName) {
-      const existing = await list<Record<string, unknown>>(TABLES.Companies, {
-        where: `(CompanyName,eq,${companyName})`,
-        limit: 1,
-        fields: "Id",
-      });
-      if (existing[0]) {
-        companyRowId = existing[0].Id as number;
-      } else {
-        const now = nowISO();
-        companyRowId = await create(TABLES.Companies, {
-          CompanyUUID: generateUUID(),
-          CompanyName: companyName,
-          ABN: companyABN || null,
-          Status: "Active",
-          CreatedAt1: now,
-          UpdatedAt1: now,
-        });
-      }
-    }
+    const companyRowId = await resolveOrCreateCompany(companyName, companyABN);
 
     let passcodeHash: string | null = null;
     if (passcode && String(passcode).trim()) {
       const invalid = validatePasscode(String(passcode));
       if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+      if (!normalizeMobile(mobile)) {
+        return NextResponse.json(
+          { error: "A mobile number is required to use a passcode — it is what identifies you at sign-in." },
+          { status: 400 }
+        );
+      }
       await ensurePasscodeColumn();
       passcodeHash = hashPasscode(String(passcode));
     }
@@ -88,9 +95,8 @@ export async function POST(request: Request) {
     });
 
     // Auto-approve SiteAccess — worker is physically present at site
-    const saUUID = generateUUID();
     await create(TABLES.SiteAccess, {
-      SiteAccessUUID: saUUID,
+      SiteAccessUUID: generateUUID(),
       Site: site.Id,
       Person: personId,
       AccessStatus: "Approved",
@@ -122,7 +128,7 @@ export async function POST(request: Request) {
       UpdatedAt1: now,
     });
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       personId,
       personUUID,
       accessToken: token,
@@ -133,6 +139,14 @@ export async function POST(request: Request) {
       signedInAt: now,
       note: "Registration complete. You are signed in to site.",
     });
+    resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: WORKER_MAX_AGE,
+    });
+    return resp;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

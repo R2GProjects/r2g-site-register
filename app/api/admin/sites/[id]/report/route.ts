@@ -29,7 +29,7 @@ export async function GET(
       })
     )));
 
-    const history = records.map(row => ({
+    const history: Array<Record<string, unknown>> = records.map(row => ({
       ...row,
       Hours: hoursLogged(row.SignInTime, row.SignOutTime),
       DisplayName: personName(row),

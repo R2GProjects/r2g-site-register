@@ -14,7 +14,9 @@ const emptyRegForm = {
 export default function HomePage() {
   const [siteCode, setSiteCode] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [workerMobile, setWorkerMobile] = useState("");
   const [workerPasscode, setWorkerPasscode] = useState("");
+  const [workerLoading, setWorkerLoading] = useState(false);
   const [mode, setMode] = useState<"site" | "worker" | "register" | null>(null);
   const [error, setError] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
@@ -42,11 +44,39 @@ export default function HomePage() {
     router.push(`/s/${code}`);
   };
 
-  const handleWorkerAccess = () => {
+  const handleWorkerAccess = async () => {
     const token = accessToken.trim();
-    const code = workerPasscode.trim();
-    if (!token && !code) { setError("Enter your access token or passcode"); return; }
-    router.push(`/w/${encodeURIComponent(token || code)}`);
+    if (token) {
+      router.push(`/w/${encodeURIComponent(token)}`);
+      return;
+    }
+
+    const mobile = workerMobile.trim();
+    const passcode = workerPasscode.trim();
+    if (!mobile || !passcode) {
+      setError("Enter your mobile number and passcode, or paste your access token");
+      return;
+    }
+
+    setError("");
+    setWorkerLoading(true);
+    try {
+      const res = await fetch("/api/auth/worker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile, passcode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Sign in failed");
+      } else {
+        router.push("/w");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setWorkerLoading(false);
+    }
   };
 
   const handleRegChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -322,7 +352,10 @@ export default function HomePage() {
                     </div>
                     <div className="form-group">
                       <label>Passcode</label>
-                      <input name="passcode" type="password" value={regForm.passcode} onChange={handleRegChange} placeholder="At least 4 characters — for faster sign-in" />
+                      <input name="passcode" type="password" value={regForm.passcode} onChange={handleRegChange} placeholder="At least 6 characters — for faster sign-in" />
+                      <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 4 }}>
+                        You sign in with your mobile number and this passcode, so a mobile number is required to use one.
+                      </p>
                     </div>
                     <button className="btn btn-primary btn-block" type="submit" disabled={regLoading}>
                       {regLoading ? <div className="spinner" /> : "Register"}
@@ -342,27 +375,43 @@ export default function HomePage() {
               <div className="card">
                 <h2 style={{ fontSize: "1.125rem", marginBottom: 16 }}>Sign In</h2>
                 <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: 16 }}>
-                  Use your passcode or your access token.
+                  Use your mobile number and passcode, or paste your access token.
                 </p>
                 <div className="form-group">
-                  <label>Passcode</label>
+                  <label htmlFor="home-mobile">Mobile Number</label>
                   <input
-                    type="password"
-                    value={workerPasscode}
-                    onChange={e => { setWorkerPasscode(e.target.value); setError(""); }}
-                    placeholder="Your passcode"
+                    id="home-mobile"
+                    type="tel"
+                    autoComplete="tel"
+                    value={workerMobile}
+                    onChange={e => { setWorkerMobile(e.target.value); setError(""); }}
+                    placeholder="e.g. 0412 345 678"
                     autoFocus
                   />
                 </div>
                 <div className="form-group">
-                  <label>Access Token (optional)</label>
+                  <label htmlFor="home-passcode">Passcode</label>
                   <input
+                    id="home-passcode"
+                    type="password"
+                    autoComplete="current-password"
+                    value={workerPasscode}
+                    onChange={e => { setWorkerPasscode(e.target.value); setError(""); }}
+                    placeholder="Your passcode"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="home-token">Access Token (optional)</label>
+                  <input
+                    id="home-token"
                     value={accessToken}
                     onChange={e => { setAccessToken(e.target.value); setError(""); }}
                     placeholder="Or paste your token"
                   />
                 </div>
-                <button className="btn btn-primary btn-block" onClick={handleWorkerAccess}>Access My Profile</button>
+                <button className="btn btn-primary btn-block" onClick={handleWorkerAccess} disabled={workerLoading}>
+                  {workerLoading ? <div className="spinner" /> : "Access My Profile"}
+                </button>
                 <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={() => { setMode(null); setError(""); }}>
                   Back
                 </button>

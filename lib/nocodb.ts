@@ -238,6 +238,43 @@ export async function remove(tableId: string, id: number): Promise<void> {
   }
 }
 
+// The NocoDB filter syntax is a flat string, so any value spliced into it can
+// restructure the query. Everything below strips or rejects the characters that
+// carry meaning in that grammar before a value reaches a `where` clause.
+const WHERE_METACHARS = /[(),~]/g;
+
+export function escapeWhereValue(value: unknown): string {
+  return String(value ?? "").replace(WHERE_METACHARS, " ").trim();
+}
+
+export function escapeLikeValue(value: unknown): string {
+  return escapeWhereValue(value).replace(/[%_]/g, "");
+}
+
+/** Positive integer or null — for row ids arriving as query params or JSON. */
+export function numericId(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function allowedValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[]
+): T | null {
+  const candidate = String(value ?? "").trim();
+  return (allowed as readonly string[]).includes(candidate) ? (candidate as T) : null;
+}
+
+/** ISO date or date-time, or null. Keeps free text out of date comparisons. */
+export function isoDateParam(value: unknown): string | null {
+  const candidate = String(value ?? "").trim();
+  if (!candidate) return null;
+  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z?)?$/.test(candidate)) {
+    return null;
+  }
+  return Number.isNaN(new Date(candidate).getTime()) ? null : candidate;
+}
+
 export function where(
   conditions: [string, string, string | number][]
 ): string {

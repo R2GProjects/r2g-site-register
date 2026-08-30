@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, update } from "@/lib/nocodb";
 import { getClientIP, nowISO } from "@/lib/auth";
-import { resolvePerson } from "@/lib/person-auth";
+import { resolvePersonFromRequest } from "@/lib/person-auth";
+import { readWorkerSession } from "@/lib/auth";
+import { guard, MINUTE } from "@/lib/rate-limit";
 import type { Attendance } from "@/lib/types";
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, passcode } = await request.json();
-    const resolved = await resolvePerson({ accessToken, passcode });
+    const { accessToken, mobile, passcode } = await request.json();
+
+    const usingSession = !accessToken && !passcode && readWorkerSession(request) !== null;
+    if (!usingSession) {
+      const limit = guard(request, "attend-signout", {
+        limit: 40,
+        windowMs: 10 * MINUTE,
+        message: "Too many attempts. Wait a few minutes and try again.",
+      });
+      if (limit.blocked) return limit.blocked;
+    }
+
+    const resolved = await resolvePersonFromRequest(request, { accessToken, mobile, passcode });
     if (!resolved.person) {
       return NextResponse.json({ error: resolved.error || "Invalid access token" }, { status: resolved.status || 401 });
     }

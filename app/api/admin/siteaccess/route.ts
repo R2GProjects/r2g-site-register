@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage, create, update } from "@/lib/nocodb";
-import { validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
+import { TABLES, listPage, create, update, allowedValue, numericId } from "@/lib/nocodb";
+import { validateAdminAuth, nowISO, generateUUID } from "@/lib/auth";
+
+const ACCESS_STATUSES = ["Pending", "Approved", "Denied", "Revoked", "Expired"] as const;
 
 export async function GET(request: Request) {
   if (!(await validateAdminAuth(request))) {
@@ -8,11 +10,11 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const personId = searchParams.get("personId");
-    const siteId = searchParams.get("siteId");
-    const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "0");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const personId = numericId(searchParams.get("personId"));
+    const siteId = numericId(searchParams.get("siteId"));
+    const status = allowedValue(searchParams.get("status"), ACCESS_STATUSES);
+    const page = Math.max(0, parseInt(searchParams.get("page") || "0") || 0);
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
     const offset = page * limit;
 
     const conditions: string[] = [];
@@ -44,7 +46,7 @@ export async function PATCH(request: Request) {
   }
   try {
     const body = await request.json();
-    if (!body.Id) {
+    if (!numericId(body.Id)) {
       return NextResponse.json({ error: "Id required" }, { status: 400 });
     }
     await update(TABLES.SiteAccess, { ...body, UpdatedAt1: nowISO() });

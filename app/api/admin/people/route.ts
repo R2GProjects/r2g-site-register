@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn } from "@/lib/nocodb";
-import { validateAdminAuth, nowISO, generateUUID, generateAccessToken, hashToken, hashPasscode, validatePasscode } from "@/lib/auth";
+import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn, escapeLikeValue, numericId } from "@/lib/nocodb";
+import { validateAdminAuth, nowISO, generateUUID, generateAccessToken, hashToken, hashPasscode, normalizeMobile, validatePasscode } from "@/lib/auth";
 import type { Person } from "@/lib/types";
 
-async function passcodeFields(passcode: unknown): Promise<{ PasscodeHash?: string; error?: string }> {
+async function passcodeFields(
+  passcode: unknown,
+  mobile: unknown
+): Promise<{ PasscodeHash?: string; error?: string }> {
   if (passcode == null || String(passcode).trim() === "") return {};
   const invalid = validatePasscode(String(passcode));
   if (invalid) return { error: invalid };
+  if (!normalizeMobile(mobile as string)) {
+    return {
+      error:
+        "This person needs a mobile number before a passcode can be set — the mobile is what identifies them at sign-in.",
+    };
+  }
   await ensurePasscodeColumn();
   return { PasscodeHash: hashPasscode(String(passcode)) };
 }
@@ -23,8 +32,9 @@ export async function GET(request: Request) {
     const offset = page * limit;
 
     let where = "";
-    if (q) {
-      where = `(FirstName,like,%${q}%)~or(LastName,like,%${q}%)`;
+    const term = escapeLikeValue(q);
+    if (term) {
+      where = `(FirstName,like,%${term}%)~or(LastName,like,%${term}%)`;
     }
 
     const result = await listPage<Person>(TABLES.People, {
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json();
-    const hashed = await passcodeFields(body.passcode);
+    const hashed = await passcodeFields(body.passcode, body.Mobile);
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
@@ -86,10 +96,21 @@ export async function PATCH(request: Request) {
   }
   try {
     const body = await request.json();
-    if (!body.Id) {
+    const targetId = numericId(body.Id);
+    if (!targetId) {
       return NextResponse.json({ error: "Id required" }, { status: 400 });
     }
-    const hashed = await passcodeFields(body.passcode);
+
+    let mobile = body.Mobile;
+    if (mobile == null && body.passcode) {
+      const [existing] = await list<Person>(TABLES.People, {
+        where: `(Id,eq,${targetId})`,
+        limit: 1,
+        fields: "Id,Mobile",
+      });
+      mobile = existing?.Mobile ?? null;
+    }
+    const hashed = await passcodeFields(body.passcode, mobile);
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
@@ -111,7 +132,7 @@ export async function DELETE(request: Request) {
   }
   try {
     const body = await request.json();
-    const id = parseInt(String(body.Id || ""));
+    const id = numericId(body.Id);
     if (!id) {
       return NextResponse.json({ error: "Id required" }, { status: 400 });
     }

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage, attachSiteDetails, attachPersonDetails, attachVisitorDetails } from "@/lib/nocodb";
+import { TABLES, list, listPage, attachSiteDetails, attachPersonDetails, attachVisitorDetails, allowedValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 import { buildAttendanceSummary, hoursLogged } from "@/lib/attendance";
+
+const ATTENDANCE_STATUSES = ["OnSite", "SignedOut", "EmergencyEvacuated", "AutoClosed"] as const;
 
 async function enrichAttendance(records: Array<Record<string, unknown>>) {
   const withSites = await attachSiteDetails(records);
@@ -15,11 +17,11 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
-    const personId = searchParams.get("personId");
-    const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "0");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const siteId = numericId(searchParams.get("siteId"));
+    const personId = numericId(searchParams.get("personId"));
+    const status = allowedValue(searchParams.get("status"), ATTENDANCE_STATUSES);
+    const page = Math.max(0, parseInt(searchParams.get("page") || "0") || 0);
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50") || 50));
     const offset = page * limit;
 
     const conditions: string[] = [];

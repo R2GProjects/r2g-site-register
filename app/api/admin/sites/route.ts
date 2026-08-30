@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, listPage, create, update } from "@/lib/nocodb";
+import { TABLES, listPage, create, update, escapeLikeValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, generateUUID } from "@/lib/auth";
 import type { Site } from "@/lib/types";
 
@@ -15,8 +15,9 @@ export async function GET(request: Request) {
     const offset = page * limit;
 
     let where = "";
-    if (q) {
-      where = `(SiteName,like,%${q}%)~or(SiteCode,like,%${q}%)`;
+    const term = escapeLikeValue(q);
+    if (term) {
+      where = `(SiteName,like,%${term}%)~or(SiteCode,like,%${term}%)`;
     }
 
     const result = await listPage<Site>(TABLES.Sites, {
@@ -74,7 +75,7 @@ export async function PATCH(request: Request) {
   }
   try {
     const body = await request.json();
-    if (!body.Id) {
+    if (!numericId(body.Id)) {
       return NextResponse.json({ error: "Id required" }, { status: 400 });
     }
     await update(TABLES.Sites, { ...body, UpdatedAt1: nowISO() });

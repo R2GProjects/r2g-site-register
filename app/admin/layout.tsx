@@ -17,8 +17,19 @@ const ADMIN_NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      setAuthed(false);
+      router.push("/admin/login");
+    }
+  };
 
   useEffect(() => {
       if (pathname === "/admin/login") {
@@ -64,9 +75,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <button
           className="btn"
           style={{ background: "transparent", color: "#fff", minHeight: 36, padding: "6px 12px", fontSize: "0.875rem" }}
-          onClick={() => router.push("/admin/login")}
+          onClick={handleLogout}
+          disabled={loggingOut}
         >
-          Logout
+          {loggingOut ? "Logging out…" : "Logout"}
         </button>
       </div>
       <div className="accent-bar no-print" />

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage } from "@/lib/nocodb";
+import { TABLES, list, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
+    const siteId = numericId(searchParams.get("siteId"));
 
     const activeSites = siteId
       ? await list<Record<string, unknown>>(TABLES.Sites, {

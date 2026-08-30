@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, attachSiteDetails } from "@/lib/nocodb";
+import { TABLES, list, attachSiteDetails, isoDateParam, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 
 export async function GET(request: Request) {
@@ -8,9 +8,9 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
-    const fromDate = searchParams.get("from");
-    const toDate = searchParams.get("to");
+    const siteId = numericId(searchParams.get("siteId"));
+    const fromDate = isoDateParam(searchParams.get("from"));
+    const toDate = isoDateParam(searchParams.get("to"));
 
     const conditions: string[] = [];
     if (siteId) conditions.push(`(Sites_id,eq,${siteId})`);

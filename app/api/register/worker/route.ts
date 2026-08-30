@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, create, findSiteByCode, ensurePasscodeColumn } from "@/lib/nocodb";
-import { generateAccessToken, hashToken, hashPasscode, nowISO, generateUUID, validatePasscode } from "@/lib/auth";
+import { TABLES, create, findSiteByCode, ensurePasscodeColumn, numericId } from "@/lib/nocodb";
+import {
+  generateAccessToken,
+  hashToken,
+  hashPasscode,
+  nowISO,
+  generateUUID,
+  normalizeMobile,
+  validatePasscode,
+} from "@/lib/auth";
+import { resolveOrCreateCompany } from "@/lib/company";
+import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -15,41 +25,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields: firstName, lastName" }, { status: 400 });
     }
 
+    const limit = guard(request, "register-worker", {
+      limit: 10,
+      windowMs: HOUR,
+      message: "Too many registrations from this connection. Try again later.",
+    });
+    if (limit.blocked) return limit.blocked;
+
     let site: Record<string, unknown> | null = null;
     if (siteCode) {
       site = await findSiteByCode(siteCode, "Id,SiteUUID,SiteName,SiteCode,Status");
       if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
 
-    let companyRowId: number | null = null;
-    if (companyId) {
-      companyRowId = companyId;
-    } else if (companyName) {
-      const existing = await list<Record<string, unknown>>(TABLES.Companies, {
-        where: `(CompanyName,eq,${companyName})`,
-        limit: 1,
-        fields: "Id",
-      });
-      if (existing[0]) {
-        companyRowId = existing[0].Id as number;
-      } else {
-        const coUUID = generateUUID();
-        const now = nowISO();
-        companyRowId = await create(TABLES.Companies, {
-          CompanyUUID: coUUID,
-          CompanyName: companyName,
-          ABN: companyABN || null,
-          Status: "Active",
-          CreatedAt1: now,
-          UpdatedAt1: now,
-        });
-      }
-    }
+    const companyRowId = numericId(companyId) ?? (await resolveOrCreateCompany(companyName, companyABN));
 
     let passcodeHash: string | null = null;
     if (passcode && String(passcode).trim()) {
       const invalid = validatePasscode(String(passcode));
       if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+      if (!normalizeMobile(mobile)) {
+        return NextResponse.json(
+          { error: "A mobile number is required to use a passcode — it is what identifies you at sign-in." },
+          { status: 400 }
+        );
+      }
       await ensurePasscodeColumn();
       passcodeHash = hashPasscode(String(passcode));
     }
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       personId,
       accessToken: token,
-      passcode: passcode && String(passcode).trim() ? String(passcode).trim() : null,
+      passcode: passcodeHash ? String(passcode).trim() : null,
       siteCode: site ? site.SiteCode : null,
       siteName: site ? site.SiteName : null,
       note: site

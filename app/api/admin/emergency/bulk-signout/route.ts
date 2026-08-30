@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, update, create } from "@/lib/nocodb";
+import { TABLES, list, update, create, numericId } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
 
 export async function POST(request: Request) {
@@ -7,7 +7,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const { siteId } = await request.json();
+    const body = await request.json();
+    const siteId = numericId(body.siteId);
 
     let where = "(Status,eq,OnSite)";
     if (siteId) {

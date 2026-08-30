@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, attachSiteDetails } from "@/lib/nocodb";
+import { TABLES, list, attachSiteDetails, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 import type { Attendance } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
+    const siteId = numericId(searchParams.get("siteId"));
 
     let where = "(Status,eq,OnSite)";
     if (siteId) where = `(${where}~and(Sites_id,eq,${siteId}))`;

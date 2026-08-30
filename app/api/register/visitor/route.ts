@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, create, findSiteByCode } from "@/lib/nocodb";
+import { TABLES, create, findSiteByCode } from "@/lib/nocodb";
 import { getClientIP, nowISO, generateUUID } from "@/lib/auth";
+import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +15,13 @@ export async function POST(request: Request) {
     if (!siteCode || !firstName || !lastName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const limit = guard(request, "register-visitor", {
+      limit: 60,
+      windowMs: HOUR,
+      message: "Too many visitor sign-ins from this connection. Try again later.",
+    });
+    if (limit.blocked) return limit.blocked;
 
     const site = await findSiteByCode(siteCode, "Id,SiteUUID,SiteName,SiteCode,Status");
     if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });

@@ -26,6 +26,7 @@ export default function SitePage() {
 
   // Token sign-in state
   const [accessToken, setAccessToken] = useState("");
+  const [mobile, setMobile] = useState("");
   const [passcode, setPasscode] = useState("");
   const [showTokenInput, setShowTokenInput] = useState(false);
 
@@ -59,25 +60,28 @@ export default function SitePage() {
 
   const handleWorkerGo = () => {
     const token = accessToken.trim();
-    if (!token) return;
-    router.push(`/w/${token}`);
+    router.push(token ? `/w/${encodeURIComponent(token)}` : "/w");
   };
 
   const handleSignIn = async () => {
     const token = accessToken.trim();
+    const number = mobile.trim();
     const code = passcode.trim();
-    if (!token && !code) {
-      setSignInError("Enter your passcode or access token");
+    if (!token && !(number && code)) {
+      setSignInError("Enter your mobile number and passcode, or paste your access token");
       return;
     }
     setSignInError("");
     setSignInLoading(true);
+
+    const dashboard = token ? `/w/${encodeURIComponent(token)}` : "/w";
     try {
       const res = await fetch("/api/attend/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accessToken: token || undefined,
+          mobile: number || undefined,
           passcode: code || undefined,
           siteCode,
           acknowledgedSiteRules: true,
@@ -87,13 +91,14 @@ export default function SitePage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.inductionRequired && data.siteCode) {
-          const dest = token || code;
-          router.push(`/induct/${data.siteCode}?token=${encodeURIComponent(dest)}&return=/w/${encodeURIComponent(dest)}`);
+          const query = new URLSearchParams({ return: dashboard });
+          if (token) query.set("token", token);
+          router.push(`/induct/${data.siteCode}?${query}`);
           return;
         }
         setSignInError(data.error || "Sign in failed");
       } else {
-        router.push(`/w/${encodeURIComponent(token || code)}`);
+        router.push(dashboard);
       }
     } catch {
       setSignInError("Network error");
@@ -213,18 +218,32 @@ export default function SitePage() {
               <>
                 <h3 style={{ fontSize: "1rem", marginBottom: 12 }}>Sign In</h3>
                 <div className="form-group">
-                  <label>Passcode</label>
+                  <label htmlFor="site-mobile">Mobile Number</label>
                   <input
-                    type="password"
-                    value={passcode}
-                    onChange={e => setPasscode(e.target.value)}
-                    placeholder="Your passcode"
+                    id="site-mobile"
+                    type="tel"
+                    autoComplete="tel"
+                    value={mobile}
+                    onChange={e => setMobile(e.target.value)}
+                    placeholder="e.g. 0412 345 678"
                     autoFocus
                   />
                 </div>
                 <div className="form-group">
-                  <label>Access Token (optional)</label>
+                  <label htmlFor="site-passcode">Passcode</label>
                   <input
+                    id="site-passcode"
+                    type="password"
+                    autoComplete="current-password"
+                    value={passcode}
+                    onChange={e => setPasscode(e.target.value)}
+                    placeholder="Your passcode"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="site-token">Access Token (optional)</label>
+                  <input
+                    id="site-token"
                     value={accessToken}
                     onChange={e => setAccessToken(e.target.value)}
                     placeholder="Or paste your token — add a passcode above to save it"
@@ -313,7 +332,10 @@ export default function SitePage() {
                   </div>
                   <div className="form-group">
                     <label>Passcode</label>
-                    <input name="passcode" type="password" value={regForm.passcode} onChange={handleRegChange} placeholder="At least 4 characters" />
+                    <input name="passcode" type="password" value={regForm.passcode} onChange={handleRegChange} placeholder="At least 6 characters" />
+                    <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 4 }}>
+                      You sign in with your mobile number and this passcode, so a mobile number is required to use one.
+                    </p>
                   </div>
 
                   {regError && <div className="error" style={{ marginBottom: 16 }}>{regError}</div>}
