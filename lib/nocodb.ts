@@ -154,6 +154,49 @@ export async function attachSiteDetails<T extends Record<string, unknown>>(
   });
 }
 
+function linkedId(record: Record<string, unknown>, objectKey: string, idKey: string): number | null {
+  const obj = record[objectKey];
+  if (obj && typeof obj === "object" && typeof (obj as { Id?: unknown }).Id === "number") {
+    return (obj as { Id: number }).Id;
+  }
+  if (typeof record[idKey] === "number") return record[idKey] as number;
+  return null;
+}
+
+export async function attachPersonDetails<T extends Record<string, unknown>>(
+  records: T[]
+): Promise<T[]> {
+  const ids = [...new Set(records.map(r => linkedId(r, "Person", "People_id")).filter((id): id is number => id != null))];
+  if (ids.length === 0) return records;
+  const people = await list<Record<string, unknown>>(TABLES.People, {
+    where: `(Id,in,${ids.join(",")})`,
+    fields: "Id,FirstName,LastName",
+    limit: ids.length,
+  });
+  const map = new Map(people.map(p => [p.Id as number, p]));
+  return records.map(r => {
+    const id = linkedId(r, "Person", "People_id");
+    return { ...r, Person: (id && map.get(id)) || r.Person };
+  });
+}
+
+export async function attachVisitorDetails<T extends Record<string, unknown>>(
+  records: T[]
+): Promise<T[]> {
+  const ids = [...new Set(records.map(r => linkedId(r, "Visitor", "Visitors_id")).filter((id): id is number => id != null))];
+  if (ids.length === 0) return records;
+  const visitors = await list<Record<string, unknown>>(TABLES.Visitors, {
+    where: `(Id,in,${ids.join(",")})`,
+    fields: "Id,FirstName,LastName",
+    limit: ids.length,
+  });
+  const map = new Map(visitors.map(v => [v.Id as number, v]));
+  return records.map(r => {
+    const id = linkedId(r, "Visitor", "Visitors_id");
+    return { ...r, Visitor: (id && map.get(id)) || r.Visitor };
+  });
+}
+
 export async function create(
   tableId: string,
   record: Record<string, unknown>

@@ -19,6 +19,8 @@ export default function PeoplePage() {
   const [tokenModal, setTokenModal] = useState<{ name: string; token: string; note: string } | null>(null);
   const [tokenCopied, setTokenCopied] = useState(false);
   const [tokenBusyId, setTokenBusyId] = useState<number | null>(null);
+  const [deleteBusyId, setDeleteBusyId] = useState<number | null>(null);
+  const [onsiteIds, setOnsiteIds] = useState<Record<number, boolean>>({});
 
   const defaultForm: Record<string,unknown> = {
     FirstName: "", LastName: "", Mobile: "", Email: "",
@@ -38,6 +40,18 @@ export default function PeoplePage() {
       .then(data => { setPeople(data.list || []); setTotal(data.totalRows || 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
+    fetch("/api/admin/onsite")
+      .then(r => r.json())
+      .then((rows: Array<Record<string, unknown>>) => {
+        if (!Array.isArray(rows)) return;
+        const ids: Record<number, boolean> = {};
+        for (const row of rows) {
+          const id = (row.Person as { Id?: number } | undefined)?.Id ?? (row.People_id as number | undefined);
+          if (typeof id === "number") ids[id] = true;
+        }
+        setOnsiteIds(ids);
+      })
+      .catch(() => setOnsiteIds({}));
   };
 
   useEffect(() => { load(0, ""); }, []);
@@ -146,6 +160,29 @@ export default function PeoplePage() {
     }
   };
 
+  const handleDelete = async (person: Record<string, unknown>) => {
+    const name = `${person.FirstName || ""} ${person.LastName || ""}`.trim();
+    if (!confirm(`Delete ${name || "this person"}? This cannot be undone.`)) return;
+    setDeleteBusyId(person.Id as number);
+    try {
+      const res = await fetch("/api/admin/people", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ Id: person.Id }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        alert(d.error || "Delete failed");
+        return;
+      }
+      load(page, search);
+    } catch {
+      alert("Network error");
+    } finally {
+      setDeleteBusyId(null);
+    }
+  };
+
   const copyToken = async () => {
     if (!tokenModal?.token) return;
     try {
@@ -169,11 +206,19 @@ export default function PeoplePage() {
       {loading ? <div className="loading"><div className="spinner" /></div> : (
         <div style={{ overflowX: "auto" }}>
           <table>
-            <thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Type</th><th>Role</th><th>Access</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Signed in</th><th>Mobile</th><th>Email</th><th>Type</th><th>Role</th><th>Access</th><th></th></tr></thead>
             <tbody>
               {people.map(p => (
                 <tr key={p.Id as number}>
-                  <td>{(p.FirstName as string)} {(p.LastName as string)}</td>
+                  <td>
+                    <span className={`signin-dot ${onsiteIds[p.Id as number] ? "in" : "out"}`} />
+                    {(p.FirstName as string)} {(p.LastName as string)}
+                  </td>
+                  <td>
+                    {onsiteIds[p.Id as number]
+                      ? <span className="badge badge-onsite">Signed in</span>
+                      : <span className="badge badge-signedout">Not signed in</span>}
+                  </td>
                   <td>{(p.Mobile as string) || "-"}</td>
                   <td>{(p.Email as string) || "-"}</td>
                   <td><span className="badge badge-active">{(p.WorkerType as string) || "-"}</span></td>
@@ -184,6 +229,14 @@ export default function PeoplePage() {
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 8px", fontSize: "0.7rem" }} onClick={() => openAccess(p)}>Access</button>
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 8px", fontSize: "0.7rem" }} onClick={() => handleRegenToken(p)} disabled={tokenBusyId === p.Id}>
                       {tokenBusyId === p.Id ? "…" : "Token"}
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ minHeight: 32, padding: "4px 8px", fontSize: "0.7rem", background: "var(--danger)", color: "#fff" }}
+                      onClick={() => handleDelete(p)}
+                      disabled={deleteBusyId === p.Id}
+                    >
+                      {deleteBusyId === p.Id ? "…" : "Delete"}
                     </button>
                   </td>
                 </tr>

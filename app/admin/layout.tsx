@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div>
-      <div className="header">
+      <div className="header no-print">
         <div className="header-left">
           <a href="/" className="header-admin">← Sign in</a>
           <h1>R2G Admin</h1>
@@ -69,8 +69,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           Logout
         </button>
       </div>
-      <div className="accent-bar" />
-      <nav className="admin-nav">
+      <div className="accent-bar no-print" />
+      <nav className="admin-nav no-print">
         {ADMIN_NAV.map(item => (
           <Link
             key={item.href}

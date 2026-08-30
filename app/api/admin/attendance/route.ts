@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
-import { TABLES, listPage, attachSiteDetails } from "@/lib/nocodb";
+import { TABLES, list, listPage, attachSiteDetails, attachPersonDetails, attachVisitorDetails } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
+import { buildAttendanceSummary, hoursLogged } from "@/lib/attendance";
+
+async function enrichAttendance(records: Array<Record<string, unknown>>) {
+  const withSites = await attachSiteDetails(records);
+  const withPeople = await attachPersonDetails(withSites);
+  return attachVisitorDetails(withPeople);
+}
 
 export async function GET(request: Request) {
   if (!(await validateAdminAuth(request))) {
@@ -32,9 +39,20 @@ export async function GET(request: Request) {
       offset,
       sort: "-SignInTime",
     });
+    const all = await list<Record<string, unknown>>(TABLES.Attendance, {
+      where,
+      limit: 2000,
+      sort: "-SignInTime",
+    });
+    const listRows = await enrichAttendance(result.list);
+    const summaryRows = await enrichAttendance(all);
     return NextResponse.json({
       ...result,
-      list: await attachSiteDetails(result.list),
+      list: listRows.map(row => ({
+        ...row,
+        Hours: hoursLogged(row.SignInTime, row.SignOutTime),
+      })),
+      summary: buildAttendanceSummary(summaryRows),
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

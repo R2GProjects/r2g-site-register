@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const records = await list<Attendance>(TABLES.Attendance, {
       where,
-      fields: "Id,AttendanceUUID,AttendanceType,SignInTime,SignInMethod,WorkActivity,Status,Site,Person,Visitor,Company,CreatedAt1",
+      fields: "Id,AttendanceUUID,AttendanceType,SignInTime,SignInMethod,WorkActivity,Status,Site,Sites_id,Person,People_id,Visitor,Company,CreatedAt1",
       sort: "-SignInTime",
       limit: 200,
     });

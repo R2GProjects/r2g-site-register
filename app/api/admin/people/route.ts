@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, listPage, create, update, ensurePasscodeColumn } from "@/lib/nocodb";
+import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, generateUUID, generateAccessToken, hashToken, hashPasscode, validatePasscode } from "@/lib/auth";
 import type { Person } from "@/lib/types";
 
@@ -102,5 +102,35 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!(await validateAdminAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    const body = await request.json();
+    const id = parseInt(String(body.Id || ""));
+    if (!id) {
+      return NextResponse.json({ error: "Id required" }, { status: 400 });
+    }
+
+    const access = await list<Record<string, unknown>>(TABLES.SiteAccess, {
+      where: `(People_id,eq,${id})`,
+      limit: 200,
+      fields: "Id",
+    });
+    for (const row of access) {
+      await remove(TABLES.SiteAccess, row.Id as number);
+    }
+
+    await remove(TABLES.People, id);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({
+      error: "Could not delete this person. They may still have attendance records. Disable access instead, or remove their attendance first.",
+      detail: String(err),
+    }, { status: 409 });
   }
 }

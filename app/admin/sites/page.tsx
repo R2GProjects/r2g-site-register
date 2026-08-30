@@ -1,6 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
+import { formatDay, formatHours, formatTime } from "@/lib/attendance";
+import type { DayPerson } from "@/lib/attendance";
+
+interface SiteReport {
+  site: Record<string, unknown>;
+  onsite: Array<Record<string, unknown>>;
+  history: Array<Record<string, unknown>>;
+  summary: {
+    totalHours: number;
+    onsiteNames: string[];
+    byDay: Array<{ date: string; hours: number; names: string[]; count: number; people?: DayPerson[] }>;
+  };
+}
 
 export default function SitesPage() {
   const [items, setItems] = useState<Array<Record<string,unknown>>>([]);
@@ -21,6 +34,10 @@ export default function SitesPage() {
     Notes: "",
   };
   const [form, setForm] = useState<Record<string,unknown>>({ ...defaultForm });
+  const [onsiteCounts, setOnsiteCounts] = useState<Record<number, number>>({});
+  const [report, setReport] = useState<SiteReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   const load = (p: number, q: string) => {
     setLoading(true);
@@ -31,9 +48,35 @@ export default function SitesPage() {
       .then(data => { setItems(data.list || []); setTotal(data.totalRows || 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
+    fetch("/api/admin/onsite")
+      .then(r => r.json())
+      .then((rows: Array<Record<string, unknown>>) => {
+        if (!Array.isArray(rows)) return;
+        const counts: Record<number, number> = {};
+        for (const row of rows) {
+          const id = (row.Site as { Id?: number } | undefined)?.Id ?? (row.Sites_id as number | undefined);
+          if (typeof id === "number") counts[id] = (counts[id] || 0) + 1;
+        }
+        setOnsiteCounts(counts);
+      })
+      .catch(() => setOnsiteCounts({}));
   };
 
   useEffect(() => { load(0, ""); }, []);
+
+  const openReport = (site: Record<string, unknown>) => {
+    setReport(null);
+    setReportError("");
+    setReportLoading(true);
+    fetch(`/api/admin/sites/${site.Id}/report`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) setReportError(data.error);
+        else setReport(data);
+      })
+      .catch(() => setReportError("Failed to load site report"))
+      .finally(() => setReportLoading(false));
+  };
   const onSearch = () => { setPage(0); load(0, search); };
 
   const statusClass = (s: string) => {
@@ -114,16 +157,19 @@ export default function SitesPage() {
       {loading ? <div className="loading"><div className="spinner" /></div> : (
         <div style={{ overflowX: "auto" }}>
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Address</th><th>Manager</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Address</th><th>On site now</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {items.map(s => (
                 <tr key={s.Id as number}>
                   <td><strong>{s.SiteCode as string}</strong></td>
                   <td>{s.SiteName as string}</td>
                   <td>{(s.Address as string) || "-"}</td>
-                  <td>{(s.SiteManager as string) || "-"}</td>
+                  <td>{onsiteCounts[s.Id as number] || 0}</td>
                   <td><span className={statusClass(s.Status as string)}>{s.Status as string}</span></td>
-                  <td><button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openEdit(s)}>Edit</button></td>
+                  <td style={{ display: "flex", gap: 4 }}>
+                    <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openReport(s)}>View</button>
+                    <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openEdit(s)}>Edit</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -133,6 +179,116 @@ export default function SitesPage() {
               <button className="btn btn-secondary" disabled={page === 0} onClick={() => { setPage(page-1); load(page-1, search); }}>Previous</button>
               <span style={{ padding: "8px 16px" }}>Page {page + 1} / {Math.ceil(total/25)}</span>
               <button className="btn btn-secondary" disabled={(page+1)*25 >= total} onClick={() => { setPage(page+1); load(page+1, search); }}>Next</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(reportLoading || report || reportError) && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="no-print" style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <button className="btn btn-secondary" onClick={() => { setReport(null); setReportError(""); }}>Close</button>
+            {report && <button className="btn btn-primary" onClick={() => window.print()}>Print</button>}
+          </div>
+          {reportLoading && <div className="loading"><div className="spinner" /></div>}
+          {reportError && <p className="error">{reportError}</p>}
+          {report && (
+            <div>
+              <h2 style={{ fontSize: "1.25rem" }}>{String(report.site.SiteName || "")}</h2>
+              <p style={{ color: "var(--muted)", marginBottom: 16 }}>
+                {String(report.site.SiteCode || "")}
+                {report.site.Address ? ` · ${report.site.Address}` : ""}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+                <div className="card">
+                  <p style={{ fontSize: "1.5rem", fontWeight: 700 }}>{report.onsite.length}</p>
+                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Signed in now</p>
+                </div>
+                <div className="card">
+                  <p style={{ fontSize: "1.5rem", fontWeight: 700 }}>{formatHours(report.summary.totalHours)}</p>
+                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Total hours</p>
+                </div>
+                <div className="card">
+                  <p style={{ fontSize: "1.5rem", fontWeight: 700 }}>{report.history.length}</p>
+                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Sign-in records</p>
+                </div>
+              </div>
+
+              <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Who is on site now</h3>
+              {report.onsite.length === 0 ? (
+                <p style={{ color: "var(--muted)", marginBottom: 16 }}>No one is currently signed in.</p>
+              ) : (
+                <table style={{ marginBottom: 16 }}>
+                  <thead><tr><th>Name</th><th>Type</th><th>Signed in</th><th>Hours</th></tr></thead>
+                  <tbody>
+                    {report.onsite.map(row => (
+                      <tr key={row.Id as number}>
+                        <td>{String(row.DisplayName || "")}</td>
+                        <td>{String(row.AttendanceType || "-")}</td>
+                        <td>{row.SignInTime ? new Date(row.SignInTime as string).toLocaleString() : "-"}</td>
+                        <td>{formatHours(Number(row.Hours) || 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Hours by day</h3>
+              {report.summary.byDay.length === 0 ? (
+                <p style={{ color: "var(--muted)", marginBottom: 16 }}>No history yet.</p>
+              ) : (
+                <table style={{ marginBottom: 16 }}>
+                  <thead><tr><th>Date</th><th>Name</th><th>Logged in</th><th>Logged out</th><th>Hours</th></tr></thead>
+                  <tbody>
+                    {report.summary.byDay.map(day => (
+                      (day.people || []).map((person, i) => (
+                        <tr key={`${day.date}-${person.name}-${i}`}>
+                          {i === 0 && (
+                            <td rowSpan={day.people?.length || 1}>
+                              <div>{formatDay(day.date)}</div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{formatHours(day.hours)} total</div>
+                            </td>
+                          )}
+                          <td>
+                            <span className={`signin-dot ${person.onSite ? "in" : "out"}`} />
+                            {person.name}
+                            {" "}
+                            {person.onSite
+                              ? <span className="badge badge-onsite">In</span>
+                              : <span className="badge badge-signedout">Out</span>}
+                          </td>
+                          <td>{person.inAt ? formatTime(person.inAt) : "—"}</td>
+                          <td>
+                            {person.onSite
+                              ? <span className="badge badge-onsite">Still on site</span>
+                              : person.outAt
+                                ? formatTime(person.outAt)
+                                : "Out on another day"}
+                          </td>
+                          <td>{formatHours(person.hours)}</td>
+                        </tr>
+                      ))
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Sign-in history</h3>
+              <table>
+                <thead><tr><th>Name</th><th>Type</th><th>Sign in</th><th>Sign out</th><th>Hours</th><th>Status</th></tr></thead>
+                <tbody>
+                  {report.history.map(row => (
+                    <tr key={row.Id as number}>
+                      <td>{String(row.DisplayName || "")}</td>
+                      <td>{String(row.AttendanceType || "-")}</td>
+                      <td>{row.SignInTime ? new Date(row.SignInTime as string).toLocaleString() : "-"}</td>
+                      <td>{row.SignOutTime ? new Date(row.SignOutTime as string).toLocaleString() : "-"}</td>
+                      <td>{formatHours(Number(row.Hours) || 0)}</td>
+                      <td>{String(row.Status || "")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

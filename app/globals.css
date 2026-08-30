@@ -195,6 +195,18 @@ label {
 
 .badge-onsite { background: var(--accent); color: #fff; }
 .badge-signedout { background: var(--surface); color: var(--muted); }
+
+.signin-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.signin-dot.in { background: var(--success); }
+.signin-dot.out { background: #9ca3af; }
 .badge-active { background: #dcfce7; color: var(--success); }
 .badge-pending { background: #fef9c3; color: #a16207; }
 .badge-suspended { background: #fee2e2; color: var(--danger); }
@@ -287,4 +299,20 @@ th {
 
 @media (min-width: 768px) {
   .container { max-width: 540px; }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .header, .admin-nav, .accent-bar {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .container-wide {
+    max-width: none;
+    padding: 0;
+  }
 }
