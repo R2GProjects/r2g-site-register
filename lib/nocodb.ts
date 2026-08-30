@@ -265,16 +265,6 @@ export function allowedValue<T extends string>(
   return (allowed as readonly string[]).includes(candidate) ? (candidate as T) : null;
 }
 
-/** ISO date or date-time, or null. Keeps free text out of date comparisons. */
-export function isoDateParam(value: unknown): string | null {
-  const candidate = String(value ?? "").trim();
-  if (!candidate) return null;
-  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?Z?)?$/.test(candidate)) {
-    return null;
-  }
-  return Number.isNaN(new Date(candidate).getTime()) ? null : candidate;
-}
-
 export function where(
   conditions: [string, string, string | number][]
 ): string {

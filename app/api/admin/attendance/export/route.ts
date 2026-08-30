@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, attachSiteDetails, isoDateParam, numericId } from "@/lib/nocodb";
+import { TABLES, list, attachSiteDetails, allowedValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
+import { dayBoundaryISO } from "@/lib/attendance";
+
+const ATTENDANCE_STATUSES = ["OnSite", "SignedOut", "EmergencyEvacuated", "AutoClosed"] as const;
 
 export async function GET(request: Request) {
   if (!(await validateAdminAuth(request))) {
@@ -9,11 +12,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const siteId = numericId(searchParams.get("siteId"));
-    const fromDate = isoDateParam(searchParams.get("from"));
-    const toDate = isoDateParam(searchParams.get("to"));
+    const status = allowedValue(searchParams.get("status"), ATTENDANCE_STATUSES);
+    const fromDate = dayBoundaryISO(searchParams.get("from"), "start");
+    const toDate = dayBoundaryISO(searchParams.get("to"), "end");
 
     const conditions: string[] = [];
     if (siteId) conditions.push(`(Sites_id,eq,${siteId})`);
+    if (status) conditions.push(`(Status,eq,${status})`);
     if (fromDate) conditions.push(`(SignInTime,gte,${fromDate})`);
     if (toDate) conditions.push(`(SignInTime,lte,${toDate})`);
 
