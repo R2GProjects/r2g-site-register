@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { runAutoClose } from "@/lib/auto-close";
+import { runRetention } from "@/lib/retention";
 import { authorizeCron } from "@/lib/cron-auth";
 import { guard, MINUTE } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const limit = guard(request, "cron-auto-close", {
+  const limit = guard(request, "cron-retention", {
     limit: 20,
     windowMs: 10 * MINUTE,
-    message: "Too many auto-close requests. Wait a few minutes and try again.",
+    message: "Too many retention requests. Wait a few minutes and try again.",
   });
   if (limit.blocked) return limit.blocked;
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   try {
     const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
-    const result = await runAutoClose({ dryRun });
+    const result = await runRetention({ dryRun });
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

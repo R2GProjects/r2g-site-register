@@ -23,7 +23,7 @@ Copy `.env.example` to `.env` and fill in:
 - `ADMIN_USERNAME` — Admin login username
 - `ADMIN_PASSWORD` — Admin login password
 - `SESSION_SECRET` — HMAC key for admin sessions. **Required in production** — the app will not start without it. Generate with `openssl rand -hex 32`.
-- `CRON_SECRET` — shared secret for the scheduled auto-close job. Generate the same way.
+- `CRON_SECRET` — shared secret for the scheduled auto-close and retention jobs. Generate the same way.
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
 - `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
 - `INDUCTION_VALIDITY_DAYS` — optional, default `365`. How long a site induction stays valid before it must be run again.
@@ -96,8 +96,8 @@ by whoever is accountable for the business's privacy obligations.
 `PRIVACY_CONTACT` is the name shown in the "how to ask" section. The two
 acceptance columns are created in NocoDB on first use.
 
-This records consent. It does not yet age records out — that is a separate
-retention step.
+This records consent. Personal details older than `DATA_RETENTION_YEARS` are
+stripped by the retention job below. Attendance facts are kept.
 
 ## Duplicate registrations
 
@@ -150,6 +150,28 @@ curl -fsS -X POST https://<host>/api/cron/auto-close \
 
 Preview without changing anything by appending `?dryRun=1`. A signed-in admin
 can also run it from the browser without the secret.
+
+## Data retention
+
+The collection notice states that personal details are kept for
+`DATA_RETENTION_YEARS`. `POST /api/cron/retention` honours that: it strips
+identifying fields from people and visitors whose last activity is older than
+the period, and leaves the attendance rows in place so hours and who-was-on-site
+can still be produced.
+
+A worker currently signed in is never stripped, even if their record is old.
+A record with no usable date is left alone. Someone already anonymised is
+skipped. Signatures on their inductions are cleared with the rest of the
+personal data. The `AnonymisedAt` columns are created in NocoDB on first use.
+
+Add a monthly task in the same scheduler (the first of the month at 3am suits):
+
+```bash
+curl -fsS -X POST https://<host>/api/cron/retention \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Preview with `?dryRun=1`. Same secret and admin-session fallback as auto-close.
 
 ## Documentation
 

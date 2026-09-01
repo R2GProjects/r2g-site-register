@@ -98,6 +98,13 @@ export async function ensureInductionColumns(): Promise<void> {
   ]);
 }
 
+/** Marks a person or visitor whose identifying fields have been stripped. */
+export async function ensureRetentionColumns(): Promise<void> {
+  const spec = [{ title: "AnonymisedAt", uidt: "DateTime" }];
+  await ensureColumns("retention-people", TABLES.People, spec);
+  await ensureColumns("retention-visitors", TABLES.Visitors, spec);
+}
+
 /** When a person accepted the collection notice, and which wording. */
 export async function ensurePrivacyColumns(table: "people" | "visitors"): Promise<void> {
   const spec = [

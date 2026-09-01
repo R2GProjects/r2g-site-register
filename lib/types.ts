@@ -63,6 +63,7 @@ export interface Person {
   AccessEnabled: boolean;
   PrivacyAcceptedAt: string | null;
   PrivacyVersion: string | null;
+  AnonymisedAt: string | null;
   Photo: string | null;
   Notes: string | null;
   Companies_id: number | null;
@@ -132,6 +133,7 @@ export interface Visitor {
   Notes: string | null;
   PrivacyAcceptedAt: string | null;
   PrivacyVersion: string | null;
+  AnonymisedAt: string | null;
   CreatedAt1: string;
 }
 
