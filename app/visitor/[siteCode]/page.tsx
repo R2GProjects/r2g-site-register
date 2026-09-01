@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 
 export default function VisitorPage() {
@@ -15,7 +16,11 @@ export default function VisitorPage() {
     acknowledgedSiteRules: true,
   });
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ visitorId?: number; siteName?: string; signedInAt?: string } | null>(null);
+  const [result, setResult] = useState<{
+    siteName?: string;
+    signedInAt?: string;
+    passToken?: string;
+  } | null>(null);
   const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -53,19 +58,13 @@ export default function VisitorPage() {
     }
   };
 
-  const handleSignOut = async () => {
-    if (!result?.visitorId) return;
-    try {
-      await fetch("/api/attend/visitor/signout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visitorId: result.visitorId }),
-      });
-      setResult({ ...result, signedInAt: "" });
-    } catch { /* ignore */ }
-  };
-
   if (result?.signedInAt) {
+    const passPath = result.passToken ? `/v/${encodeURIComponent(result.passToken)}` : "";
+    const passUrl =
+      passPath && typeof window !== "undefined"
+        ? `${window.location.origin}${passPath}`
+        : "";
+
     return (
       <div>
         <Header title="Signed In" />
@@ -77,13 +76,26 @@ export default function VisitorPage() {
             <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
               Signed in at {new Date(result.signedInAt).toLocaleTimeString()}
             </p>
-            <p style={{ marginTop: 16, fontSize: "0.875rem", color: "var(--muted)" }}>
-              Remember to sign out when you leave.
-            </p>
-            <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={handleSignOut}>
-              Sign Out
-            </button>
           </div>
+
+          {passUrl && (
+            <div className="card" style={{ textAlign: "center", marginTop: 16 }}>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>Save your pass before you go</p>
+              <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: 12 }}>
+                You need this to sign out when you leave. Photograph the code or
+                bookmark the page — if you close this tab without it, you will
+                stay on the site register.
+              </p>
+              <QRCodeSVG value={passUrl} size={150} bgColor="#ffffff" fgColor="#0a0a0a" level="M" />
+              <button
+                className="btn btn-primary btn-block"
+                style={{ marginTop: 16 }}
+                onClick={() => router.push(passPath)}
+              >
+                Open My Pass
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

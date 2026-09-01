@@ -1,36 +1,51 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, update } from "@/lib/nocodb";
-import { getClientIP, nowISO } from "@/lib/auth";
+import { TABLES, getOne, update } from "@/lib/nocodb";
+import { getClientIP, nowISO, readVisitorPass } from "@/lib/auth";
+import { guard, MINUTE } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
-    const { visitorId } = await request.json();
-    if (!visitorId) {
-      return NextResponse.json({ error: "Missing visitorId" }, { status: 400 });
-    }
-
-    const active = await list<Record<string, unknown>>(TABLES.Attendance, {
-      where: `(Visitors_id,eq,${visitorId})~and(Status,eq,OnSite)`,
-      limit: 1,
+    const limit = guard(request, "visitor-signout", {
+      limit: 40,
+      windowMs: 10 * MINUTE,
+      message: "Too many attempts. Wait a few minutes and try again.",
     });
-    if (!active[0]) {
-      return NextResponse.json({ error: "No active visitor attendance found" }, { status: 400 });
+    if (limit.blocked) return limit.blocked;
+
+    const { token } = await request.json();
+    const pass = readVisitorPass(token);
+    if (!pass) {
+      return NextResponse.json(
+        { error: "This sign-out link is not valid or has expired." },
+        { status: 401 }
+      );
     }
 
-    const ip = getClientIP(request);
-    const ua = request.headers.get("user-agent") || "";
-    const now = nowISO();
+    const record = await getOne<Record<string, unknown>>(
+      TABLES.Attendance,
+      pass.attendanceId
+    );
+    if (!record || Number(record.Visitors_id) !== pass.visitorId) {
+      return NextResponse.json({ error: "Visit not found" }, { status: 404 });
+    }
+    if (record.Status !== "OnSite") {
+      return NextResponse.json(
+        { error: "You are already signed out.", alreadySignedOut: true },
+        { status: 409 }
+      );
+    }
 
+    const now = nowISO();
     await update(TABLES.Attendance, {
-      Id: active[0].Id as number,
+      Id: pass.attendanceId,
       SignOutTime: now,
-      SignOutIP: ip,
-      SignOutUserAgent: ua,
+      SignOutIP: getClientIP(request),
+      SignOutUserAgent: request.headers.get("user-agent") || "",
       Status: "SignedOut",
       UpdatedAt1: now,
     });
 
-    return NextResponse.json({ signedOut: true });
+    return NextResponse.json({ signedOut: true, signedOutAt: now });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

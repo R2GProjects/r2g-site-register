@@ -111,6 +111,59 @@ export function readWorkerSession(request: Request): number | null {
   }
 }
 
+/** A visitor keeps their pass across sessions, so it outlives a single shift. */
+const VISITOR_PASS_TTL = 3 * 24 * 60 * 60 * 1000;
+
+interface VisitorPassPayload {
+  v: number;
+  a: number;
+  exp: number;
+}
+
+/**
+ * Signed proof of one visitor sign-in, safe to put in a URL. It names the exact
+ * attendance record, so holding it lets the visitor close their own visit and
+ * nothing else — unlike a bare row id, which anyone could guess.
+ */
+export function createVisitorPass(visitorId: number, attendanceId: number): string {
+  const b64 = Buffer.from(
+    JSON.stringify({
+      v: visitorId,
+      a: attendanceId,
+      exp: Date.now() + VISITOR_PASS_TTL,
+    } satisfies VisitorPassPayload)
+  ).toString("base64url");
+  const hmac = crypto.createHmac("sha256", SESSION_SECRET).update(b64).digest("hex");
+  return `${b64}.${hmac}`;
+}
+
+export function readVisitorPass(
+  token: string | null | undefined
+): { visitorId: number; attendanceId: number } | null {
+  if (!token) return null;
+  const [b64, hmac] = String(token).split(".");
+  if (!b64 || !hmac) return null;
+
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(b64).digest("hex");
+  if (!safeEqual(hmac, expected)) return null;
+
+  try {
+    const payload: VisitorPassPayload = JSON.parse(
+      Buffer.from(b64, "base64url").toString("utf-8")
+    );
+    if (
+      typeof payload.v !== "number" ||
+      typeof payload.a !== "number" ||
+      Date.now() > payload.exp
+    ) {
+      return null;
+    }
+    return { visitorId: payload.v, attendanceId: payload.a };
+  } catch {
+    return null;
+  }
+}
+
 export function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }

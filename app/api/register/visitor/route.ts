@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TABLES, create, findSiteByCode } from "@/lib/nocodb";
-import { getClientIP, nowISO, generateUUID } from "@/lib/auth";
+import { getClientIP, nowISO, generateUUID, createVisitorPass } from "@/lib/auth";
 import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -67,6 +67,8 @@ export async function POST(request: Request) {
       attendanceId,
       siteName: site.SiteName,
       signedInAt: now,
+      // Lets the visitor reopen their own sign-out screen after closing the tab.
+      passToken: createVisitorPass(visitorId, attendanceId),
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
