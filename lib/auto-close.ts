@@ -16,7 +16,9 @@ export interface AutoCloseConfig {
 export const DEFAULT_CUTOFF = "18:00";
 export const DEFAULT_MAX_HOURS = 12;
 
-export function autoCloseConfig(env = process.env): AutoCloseConfig {
+export function autoCloseConfig(
+  env: Record<string, string | undefined> = process.env
+): AutoCloseConfig {
   const cutoff = parseClockTime(env.AUTO_CLOSE_CUTOFF) ??
     parseClockTime(DEFAULT_CUTOFF) ?? { hours: 18, minutes: 0 };
 

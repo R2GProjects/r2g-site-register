@@ -27,6 +27,23 @@ Copy `.env.example` to `.env` and fill in:
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
 - `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
 
+## Tests
+
+```bash
+npm test          # run once
+npm run test:watch
+npm run typecheck
+```
+
+The suite covers the logic whose output the register is relied on for: the hours
+calculation, site-local day boundaries and daylight saving, the auto-close
+decision, passcode hashing and visitor pass signing, the NocoDB filter escaping,
+and the evacuation roll grouping. These are pure functions, so the tests need no
+database and no network.
+
+CI runs the typecheck, the tests and a production build on every push and pull
+request.
+
 ## Scheduled auto-close
 
 Workers who forget to sign out would otherwise accumulate hours forever and stay
