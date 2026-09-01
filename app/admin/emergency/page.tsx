@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const REFRESH_MS = 30_000;
 
 interface EmergencySite {
   site: { Id: number; SiteName: string; SiteCode: string; SiteManager: string; SiteManagerPhone: string; Address: string };
@@ -19,17 +21,36 @@ export default function EmergencyPage() {
   const [loading, setLoading] = useState(true);
   const [bulkSigningOut, setBulkSigningOut] = useState<number | null>(null);
   const [bulkResult, setBulkResult] = useState("");
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const firstLoad = useRef(true);
 
-  const load = () => {
-    setLoading(true);
-    fetch("/api/admin/emergency")
-      .then(r => r.json())
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+  const load = useCallback(async () => {
+    // Only the very first load blanks the screen. A refresh mid-evacuation must
+    // not replace the roll with a spinner.
+    if (firstLoad.current) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const res = await fetch("/api/admin/emergency");
+      const d = await res.json();
+      if (Array.isArray(d)) {
+        setData(d);
+        setUpdatedAt(new Date());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      firstLoad.current = false;
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [load]);
 
   const handleBulkSignOut = async (siteId: number) => {
     if (!confirm("Sign out ALL workers and visitors currently on this site? This will create audit log entries for every person. This is for emergency evacuations only.")) return;
@@ -61,7 +82,9 @@ export default function EmergencyPage() {
     <div style={{ paddingTop: 24 }}>
       <h2 style={{ marginBottom: 8, color: "var(--danger)" }}>🔴 Emergency / Evacuation List</h2>
       <p style={{ color: "var(--muted)", marginBottom: 16, fontSize: "0.875rem" }}>
-        All currently on-site workers and visitors — updated on load. Refresh for real-time data.
+        All currently on-site workers and visitors. Updates every 30 seconds.
+        {updatedAt && ` Last updated ${updatedAt.toLocaleTimeString()}.`}
+        {refreshing && " Refreshing…"}
       </p>
 
       {bulkResult && (
@@ -134,8 +157,13 @@ export default function EmergencyPage() {
         ))
       )}
 
-      <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={load}>
-        🔄 Refresh
+      <button
+        className="btn btn-secondary"
+        style={{ marginTop: 8 }}
+        onClick={load}
+        disabled={refreshing}
+      >
+        {refreshing ? "Refreshing…" : "🔄 Refresh"}
       </button>
     </div>
   );
