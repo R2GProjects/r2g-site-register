@@ -1,6 +1,48 @@
+import { createHash } from "node:crypto";
+
 const DAY_MS = 86_400_000;
 
 export const DEFAULT_VALIDITY_DAYS = 365;
+
+/** Largest signature image accepted, before base64 expansion. */
+export const MAX_SIGNATURE_BYTES = 200 * 1024;
+
+/**
+ * A version derived from the rules themselves.
+ *
+ * Every induction used to record the literal string "v1", which said nothing
+ * about what the worker actually agreed to. Hashing the text means editing the
+ * site rules changes the version on its own, so an induction signed against the
+ * old wording is distinguishable from one signed against the new — without
+ * anyone remembering to bump a number.
+ *
+ * Line endings are normalised and the ends trimmed, so reformatting that leaves
+ * the wording untouched does not invalidate everyone's induction.
+ */
+export function rulesVersion(rules: unknown): string {
+  const text = String(rules ?? "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+  if (!text) return "rules-none";
+  const digest = createHash("sha256").update(text, "utf8").digest("hex");
+  return `rules-${digest.slice(0, 12)}`;
+}
+
+/**
+ * Whether a value is a signature image the app is willing to store.
+ *
+ * Only the format and size are checked. Whether the drawing is a real signature
+ * or a single dot cannot be judged here — the page requires a stroke before it
+ * will submit, and the point of the record is that the worker was shown the
+ * rules and put something on the screen, not handwriting analysis.
+ */
+export function isSignatureImage(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(value.trim());
+  if (!match) return false;
+  const bytes = Math.floor((match[1].length * 3) / 4);
+  return bytes > 64 && bytes <= MAX_SIGNATURE_BYTES;
+}
 
 /**
  * How long a site induction stays valid. Site inductions are normally re-run

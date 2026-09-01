@@ -140,6 +140,8 @@ export interface Induction {
   ExpiresAt: string | null;
   Accepted: boolean;
   Signature: string | null;
+  SignatureImage: string | null;
+  RulesSnapshot: string | null;
   DocumentURL: string | null;
   Status: string | null;
   People_id: number | null;

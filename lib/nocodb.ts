@@ -82,6 +82,22 @@ export async function ensureCredentialColumns(): Promise<void> {
   ]);
 }
 
+/**
+ * The signature image and a copy of the rules it was signed against.
+ *
+ * The table already carries a `Signature` column that nothing has ever written,
+ * of a type this code cannot confirm. A signature is tens of kilobytes of data
+ * URL, so writing it to a single-line column would silently truncate the one
+ * artefact the record exists to hold. Writing to columns created here means the
+ * type is known to be long text whatever the table already had.
+ */
+export async function ensureInductionColumns(): Promise<void> {
+  await ensureColumns("induction", TABLES.Inductions, [
+    { title: "SignatureImage", uidt: "LongText" },
+    { title: "RulesSnapshot", uidt: "LongText" },
+  ]);
+}
+
 export async function list<T>(
   tableId: string,
   params?: {

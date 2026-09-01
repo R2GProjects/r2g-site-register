@@ -1,5 +1,101 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_SIGNATURE_BYTES,
+  isSignatureImage,
+  rulesVersion,
+} from "@/lib/induction";
+
+/** A PNG data URL of a given decoded size, for the size-bound checks. */
+const signatureOf = (bytes: number) =>
+  `data:image/png;base64,${"A".repeat(Math.ceil(bytes / 3) * 4)}`;
+
+describe("rulesVersion", () => {
+  it("is stable for the same wording", () => {
+    expect(rulesVersion("Hard hats at all times.")).toBe(
+      rulesVersion("Hard hats at all times.")
+    );
+  });
+
+  it("changes when the wording changes", () => {
+    // The whole point: an induction signed against the old rules must be
+    // distinguishable from one signed against the new.
+    expect(rulesVersion("Hard hats at all times.")).not.toBe(
+      rulesVersion("Hard hats and hi-vis at all times.")
+    );
+  });
+
+  it("ignores line endings and surrounding whitespace", () => {
+    const unix = rulesVersion("Rule one.\nRule two.");
+    const windows = rulesVersion("  Rule one.\r\nRule two.\r\n  ");
+    expect(unix).toBe(windows);
+  });
+
+  it("does not ignore whitespace inside the wording", () => {
+    expect(rulesVersion("Rule one.\nRule two.")).not.toBe(
+      rulesVersion("Rule one. Rule two.")
+    );
+  });
+
+  it.each([null, undefined, "", "   "])(
+    "marks %p as having no rules rather than hashing nothing",
+    (value) => {
+      expect(rulesVersion(value)).toBe("rules-none");
+    }
+  );
+
+  it("is short enough to read in a table", () => {
+    expect(rulesVersion("anything").length).toBeLessThanOrEqual(20);
+  });
+
+  it("keeps a hundred different rule sets apart", () => {
+    // A version short enough to collide would quietly merge two different sets
+    // of rules into one identifier, which is the failure that matters here.
+    const versions = new Set(
+      Array.from({ length: 100 }, (_, i) => rulesVersion(`Site rule set ${i}`))
+    );
+    expect(versions.size).toBe(100);
+  });
+});
+
+describe("isSignatureImage", () => {
+  it("accepts a plausible PNG data URL", () => {
+    expect(isSignatureImage(signatureOf(2000))).toBe(true);
+  });
+
+  // These carry a payload of a plausible size, so they can only be rejected on
+  // the media type itself rather than incidentally failing the size bound.
+  const body = signatureOf(2000).split(",")[1];
+
+  it.each([
+    ["a JPEG", `data:image/jpeg;base64,${body}`],
+    ["an SVG, which can carry script", `data:image/svg+xml;base64,${body}`],
+    ["a GIF", `data:image/gif;base64,${body}`],
+    ["text/html wearing a data URL", `data:text/html;base64,${body}`],
+    ["a media type that merely ends in png", `data:image/x-png;base64,${body}`],
+    ["a bare URL", "https://example.com/signature.png"],
+    ["raw base64 with no prefix", body],
+    ["an empty string", ""],
+  ])("rejects %s", (_label, value) => {
+    expect(isSignatureImage(value)).toBe(false);
+  });
+
+  it.each([null, undefined, 42, {}, []])("rejects the non-string %p", (value) => {
+    expect(isSignatureImage(value)).toBe(false);
+  });
+
+  it("rejects something too small to be a drawing", () => {
+    expect(isSignatureImage(signatureOf(20))).toBe(false);
+  });
+
+  it("rejects an image large enough to be an upload in disguise", () => {
+    expect(isSignatureImage(signatureOf(MAX_SIGNATURE_BYTES + 5000))).toBe(false);
+  });
+
+  it("rejects base64 containing characters that are not base64", () => {
+    expect(isSignatureImage(`data:image/png;base64,${"<".repeat(400)}`)).toBe(false);
+  });
+});
+import {
   DEFAULT_VALIDITY_DAYS,
   inductionExpiry,
   inductionState,

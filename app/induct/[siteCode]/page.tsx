@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
+import SignaturePad from "@/components/SignaturePad";
 
 interface InductionData {
   siteCode: string;
@@ -27,6 +28,7 @@ export default function InductionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -45,6 +47,10 @@ export default function InductionPage() {
       setError("You must acknowledge that you have read and understood the induction rules.");
       return;
     }
+    if (!signature) {
+      setError("Please sign in the box above to confirm you have completed the induction.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -57,6 +63,7 @@ export default function InductionPage() {
           ...(accessToken ? { accessToken } : {}),
           siteCode,
           accepted: true,
+          signature,
         }),
       });
       const d = await res.json();
@@ -70,7 +77,7 @@ export default function InductionPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [accepted, accessToken, siteCode]);
+  }, [accepted, accessToken, siteCode, signature]);
 
   if (loading) {
     return (
@@ -192,6 +199,15 @@ export default function InductionPage() {
                   />
                   I have read and understood the site induction rules and emergency plan.
                 </label>
+              </div>
+
+              <div className="form-group">
+                <label>Your signature</label>
+                <SignaturePad onChange={setSignature} />
+                <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 8 }}>
+                  Your signature is stored with the exact site rules shown above
+                  and the time you accepted them.
+                </p>
               </div>
 
               {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}

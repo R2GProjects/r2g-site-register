@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, create, update, findSiteByCode } from "@/lib/nocodb";
+import { TABLES, list, create, update, findSiteByCode, ensureInductionColumns } from "@/lib/nocodb";
 import { nowISO, generateUUID } from "@/lib/auth";
 import { resolvePersonFromRequest } from "@/lib/person-auth";
 import { guard, MINUTE } from "@/lib/rate-limit";
-import { inductionExpiry, inductionValidityDays } from "@/lib/induction";
+import {
+  inductionExpiry,
+  inductionValidityDays,
+  isSignatureImage,
+  rulesVersion,
+} from "@/lib/induction";
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +19,20 @@ export async function POST(request: Request) {
     });
     if (limit.blocked) return limit.blocked;
 
-    const { accessToken, mobile, passcode, siteCode, accepted } =
+    const { accessToken, mobile, passcode, siteCode, accepted, signature } =
       await request.json();
 
     if (!siteCode) {
       return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
+    }
+    if (!isSignatureImage(signature)) {
+      return NextResponse.json(
+        {
+          error:
+            "A signature is required to complete the induction. Sign in the box and try again.",
+        },
+        { status: 400 }
+      );
     }
 
     // Identity is resolved the same way as every other worker route, so a
@@ -36,7 +50,10 @@ export async function POST(request: Request) {
     }
     const person = resolved.person;
 
-    const site = await findSiteByCode(siteCode, "Id,SiteUUID,SiteName,SiteCode");
+    const site = await findSiteByCode(
+      siteCode,
+      "Id,SiteUUID,SiteName,SiteCode,InductionRules"
+    );
     if (!site) {
       return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
@@ -44,10 +61,16 @@ export async function POST(request: Request) {
     const now = nowISO();
     const expiresAt = inductionExpiry(now, inductionValidityDays());
 
+    await ensureInductionColumns();
+    // The rules are copied in, not just referenced. A version that points at
+    // text the site manager can edit afterwards proves nothing about what this
+    // worker was actually shown, which is the whole point of the record.
     await create(TABLES.Inductions, {
       InductionUUID: generateUUID(),
       InductionType: "Site",
-      InductionVersion: "v1",
+      InductionVersion: rulesVersion(site.InductionRules),
+      RulesSnapshot: (site.InductionRules as string) || null,
+      SignatureImage: signature,
       CompletedAt: now,
       ExpiresAt: expiresAt,
       Accepted: accepted ?? true,

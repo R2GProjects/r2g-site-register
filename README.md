@@ -63,6 +63,21 @@ expiring, on the worker dashboard and in the admin list.
 The two expiry columns are created in NocoDB on first use, so no manual schema
 change is needed.
 
+## Induction signatures
+
+Completing an induction requires a drawn signature. It is stored with a copy of
+the exact rules text shown at the time and a version derived from that text, so
+editing a site's rules changes the version on its own and an induction signed
+against the old wording stays distinguishable from one signed against the new.
+
+The rules are copied into the record rather than referenced. A version pointing
+at text a site manager can edit afterwards proves nothing about what a given
+worker was shown, which is the whole point of keeping the record.
+
+Admin → Inductions lists the signed records with site and date filters, and
+opening one shows the signature and the rules that were accepted. Inductions
+completed before this shipped have no signature and say so.
+
 ## Duplicate registrations
 
 Registering again is what someone does when they have forgotten how to sign in,
