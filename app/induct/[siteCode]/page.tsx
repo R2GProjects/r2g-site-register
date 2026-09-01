@@ -45,17 +45,19 @@ export default function InductionPage() {
       setError("You must acknowledge that you have read and understood the induction rules.");
       return;
     }
-    if (!accessToken) {
-      setError("Missing access token. Please return to your dashboard and try again.");
-      return;
-    }
     setSubmitting(true);
     setError("");
     try {
+      // No token in the URL is normal for a passcode sign-in — the worker
+      // session cookie identifies them instead.
       const res = await fetch("/api/induct/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, siteCode, accepted: true }),
+        body: JSON.stringify({
+          ...(accessToken ? { accessToken } : {}),
+          siteCode,
+          accepted: true,
+        }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -110,19 +112,17 @@ export default function InductionPage() {
             <p style={{ color: "var(--muted)", marginTop: 4 }}>
               You can now sign in to this site.
             </p>
-            {returnPath ? (
-              <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={() => router.push(returnPath)}>
-                Return to Dashboard
-              </button>
-            ) : accessToken ? (
-              <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={() => router.push(`/w/${accessToken}`)}>
-                Go to Dashboard
-              </button>
-            ) : (
-              <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={() => router.push("/")}>
-                Home
-              </button>
-            )}
+            <button
+              className="btn btn-primary btn-block"
+              style={{ marginTop: 16 }}
+              onClick={() =>
+                router.push(
+                  returnPath || (accessToken ? `/w/${encodeURIComponent(accessToken)}` : "/w")
+                )
+              }
+            >
+              Return to Dashboard
+            </button>
           </div>
         </div>
       </div>

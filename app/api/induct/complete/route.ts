@@ -1,37 +1,44 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, create, update, findSiteByCode } from "@/lib/nocodb";
-import { hashToken, nowISO, generateUUID } from "@/lib/auth";
-import type { Person } from "@/lib/types";
+import { nowISO, generateUUID } from "@/lib/auth";
+import { resolvePersonFromRequest } from "@/lib/person-auth";
+import { guard, MINUTE } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, siteCode, accepted } = await request.json();
-
-    if (!accessToken || !siteCode) {
-      return NextResponse.json({ error: "Missing accessToken or siteCode" }, { status: 400 });
-    }
-
-    const hash = hashToken(accessToken);
-    const persons = await list<Person>(TABLES.People, {
-      where: `(AccessTokenHash,eq,${hash})`,
-      limit: 1,
-      fields: "Id,PersonUUID,FirstName,LastName,InductionStatus",
+    const limit = guard(request, "induct-complete", {
+      limit: 30,
+      windowMs: 10 * MINUTE,
+      message: "Too many attempts. Wait a few minutes and try again.",
     });
-    if (!persons[0]) {
-      return NextResponse.json({ error: "Invalid access token" }, { status: 401 });
+    if (limit.blocked) return limit.blocked;
+
+    const { accessToken, mobile, passcode, siteCode, accepted } =
+      await request.json();
+
+    if (!siteCode) {
+      return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
     }
-    const person = persons[0];
+
+    // Identity is resolved the same way as every other worker route, so a
+    // worker signed in with a mobile and passcode can induct too.
+    const resolved = await resolvePersonFromRequest(request, {
+      accessToken,
+      mobile,
+      passcode,
+    });
+    if (!resolved.person) {
+      return NextResponse.json(
+        { error: resolved.error || "Invalid access token" },
+        { status: resolved.status || 401 }
+      );
+    }
+    const person = resolved.person;
 
     const site = await findSiteByCode(siteCode, "Id,SiteUUID,SiteName,SiteCode");
     if (!site) {
       return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
-
-    const accessList = await list<Record<string, unknown>>(TABLES.SiteAccess, {
-      where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})`,
-      limit: 1,
-      fields: "Id,SiteAccessUUID,SiteInductionComplete,SiteInductionDate",
-    });
 
     const now = nowISO();
 
@@ -48,12 +55,31 @@ export async function POST(request: Request) {
       UpdatedAt1: now,
     });
 
+    const accessList = await list<Record<string, unknown>>(TABLES.SiteAccess, {
+      where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})`,
+      limit: 1,
+      fields: "Id,SiteAccessUUID,SiteInductionComplete,SiteInductionDate",
+    });
+
     if (accessList[0]) {
-      const sa = accessList[0];
       await update(TABLES.SiteAccess, {
-        Id: sa.Id as number,
+        Id: accessList[0].Id as number,
         SiteInductionComplete: true,
         SiteInductionDate: now,
+        UpdatedAt1: now,
+      });
+    } else {
+      // Sign-in gates on this row, so inducting before a first sign-in would
+      // otherwise record the induction and still leave the worker blocked.
+      await create(TABLES.SiteAccess, {
+        SiteAccessUUID: generateUUID(),
+        Site: site.Id,
+        Person: person.Id,
+        AccessStatus: "Approved",
+        StartDate: now,
+        SiteInductionComplete: true,
+        SiteInductionDate: now,
+        CreatedAt1: now,
         UpdatedAt1: now,
       });
     }
