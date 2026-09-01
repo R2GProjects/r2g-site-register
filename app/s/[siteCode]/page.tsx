@@ -134,8 +134,10 @@ export default function SitePage() {
       if (!res.ok) {
         setRegError(data.error || "Registration failed");
       } else {
-        // Redirect to worker dashboard — they're already signed in
-        router.push(`/w/${data.accessToken}`);
+        // Redirect to worker dashboard — they're already signed in. A worker we
+        // matched to an existing record gets no new token, but does get a
+        // session cookie, so send them to the token-less dashboard.
+        router.push(data.accessToken ? `/w/${data.accessToken}` : "/w");
       }
     } catch {
       setRegError("Network error");

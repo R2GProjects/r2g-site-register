@@ -10,6 +10,7 @@ import {
   validatePasscode,
 } from "@/lib/auth";
 import { resolveOrCreateCompany } from "@/lib/company";
+import { findDuplicatePerson } from "@/lib/person-auth";
 import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -36,6 +37,22 @@ export async function POST(request: Request) {
     if (siteCode) {
       site = await findSiteByCode(siteCode, "Id,SiteUUID,SiteName,SiteCode,Status");
       if (!site) return NextResponse.json({ error: "Site not found" }, { status: 404 });
+    }
+
+    // A second record for the same person splits their hours, inductions and
+    // site access across two identities that nothing links together.
+    const existing = await findDuplicatePerson({ mobile, email });
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: existing.PasscodeHash
+            ? "Someone is already registered with that mobile or email. Sign in with your mobile and passcode instead."
+            : "Someone is already registered with that mobile or email. Use your access token to sign in, or ask the site supervisor to look you up.",
+          duplicate: true,
+          hasPasscode: Boolean(existing.PasscodeHash),
+        },
+        { status: 409 }
+      );
     }
 
     const companyRowId = numericId(companyId) ?? (await resolveOrCreateCompany(companyName, companyABN));

@@ -71,6 +71,42 @@ async function findPeopleByMobile(mobile: string): Promise<Person[]> {
   return full.filter((p): p is Person => p !== null);
 }
 
+export function normalizeEmail(email: unknown): string {
+  return String(email ?? "").trim().toLowerCase();
+}
+
+/**
+ * An existing person with the same mobile or email.
+ *
+ * Registering again is the natural move for someone who has forgotten their
+ * passcode, and every one of those used to create a second identity — splitting
+ * that worker's hours, inductions and site access across two records that
+ * nothing links together.
+ */
+export async function findDuplicatePerson(input: {
+  mobile?: unknown;
+  email?: unknown;
+}): Promise<Person | null> {
+  const digits = normalizeMobile(input.mobile as string);
+  if (digits.length >= 6) {
+    const byMobile = await findPeopleByMobile(String(input.mobile));
+    if (byMobile[0]) return byMobile[0];
+  }
+
+  const email = normalizeEmail(input.email);
+  if (email) {
+    const matches = await list<Person>(TABLES.People, {
+      where: `(Email,eq,${escapeWhereValue(email)})`,
+      limit: 5,
+      fields: PERSON_AUTH_FIELDS,
+    });
+    const exact = matches.find((p) => normalizeEmail(p.Email) === email);
+    if (exact) return exact;
+  }
+
+  return null;
+}
+
 export interface ResolveInput {
   accessToken?: string;
   mobile?: string;

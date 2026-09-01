@@ -39,6 +39,19 @@ so they do lapse — but a record with no usable date at all is treated as valid
 because turning someone away over missing data is the wrong way to fail. Expect
 a wave of re-inductions on older sites after the first deploy.
 
+## Duplicate registrations
+
+Registering again is what someone does when they have forgotten how to sign in,
+and each of those used to mint a second person record — splitting that worker's
+hours, inductions and site access across two identities nothing links together.
+
+Registration now looks for an existing person by mobile (compared as digits, so
+formatting differences still match) or email, and refuses to create a second
+record. On the site sign-in page, a worker who supplies the passcode that
+matches the existing record is recognised and signed in against it instead,
+which turns the dead end into the recovery path people were already attempting.
+Anyone else is told to sign in or see the supervisor.
+
 ## Tests
 
 ```bash
