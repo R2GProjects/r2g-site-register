@@ -76,16 +76,18 @@ function zoneOffsetMs(rawInstant: number, timeZone: string): number {
 }
 
 /**
- * The UTC instant matching the start or end of a `YYYY-MM-DD` day as it is lived
- * on site. Filtering on raw UTC midnight would drop the early morning sign-ins
- * that make up most of a shift, since 7am in Sydney is the previous day in UTC.
- * Returns null for anything that is not a plain calendar date.
+ * The UTC instant for a wall-clock time on a `YYYY-MM-DD` day as it is lived on
+ * site. Working in raw UTC would put 7am in Sydney on the previous date, which
+ * is most of a morning shift. Returns null for anything that is not a plain
+ * calendar date.
  */
-export function dayBoundaryISO(
+export function siteLocalInstant(
   day: unknown,
-  edge: "start" | "end",
+  hours: number,
+  minutes = 0,
+  seconds = 0,
   timeZone = SITE_TIMEZONE
-): string | null {
+): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day ?? "").trim());
   if (!match) return null;
   const year = Number(match[1]);
@@ -93,16 +95,41 @@ export function dayBoundaryISO(
   const date = Number(match[3]);
   if (month < 1 || month > 12 || date < 1 || date > 31) return null;
 
-  const wall =
-    edge === "end"
-      ? Date.UTC(year, month - 1, date, 23, 59, 59, 0)
-      : Date.UTC(year, month - 1, date, 0, 0, 0, 0);
+  const wall = Date.UTC(year, month - 1, date, hours, minutes, seconds, 0);
 
-  // Two passes so a boundary that falls on a daylight-saving change resolves
+  // Two passes so a time that falls on a daylight-saving change resolves
   // against the offset actually in force at that instant.
   const firstPass = wall - zoneOffsetMs(wall, timeZone);
-  const instant = wall - zoneOffsetMs(firstPass, timeZone);
+  return wall - zoneOffsetMs(firstPass, timeZone);
+}
+
+function toISO(instant: number): string {
   return new Date(instant).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/** Start or end of a site-local day, as an ISO instant. */
+export function dayBoundaryISO(
+  day: unknown,
+  edge: "start" | "end",
+  timeZone = SITE_TIMEZONE
+): string | null {
+  const instant =
+    edge === "end"
+      ? siteLocalInstant(day, 23, 59, 59, timeZone)
+      : siteLocalInstant(day, 0, 0, 0, timeZone);
+  return instant === null ? null : toISO(instant);
+}
+
+/** Parses "HH:MM" into hours and minutes, or null if it is not a valid time. */
+export function parseClockTime(
+  value: unknown
+): { hours: number; minutes: number } | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return { hours, minutes };
 }
 
 export function formatDay(key: string): string {

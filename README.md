@@ -22,7 +22,32 @@ Copy `.env.example` to `.env` and fill in:
 - `NOCODB_API_TOKEN` — NocoDB API token
 - `ADMIN_USERNAME` — Admin login username
 - `ADMIN_PASSWORD` — Admin login password
-- `SESSION_SECRET` — HMAC key for admin sessions
+- `SESSION_SECRET` — HMAC key for admin sessions. **Required in production** — the app will not start without it. Generate with `openssl rand -hex 32`.
+- `CRON_SECRET` — shared secret for the scheduled auto-close job. Generate the same way.
+- `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
+- `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
+
+## Scheduled auto-close
+
+Workers who forget to sign out would otherwise accumulate hours forever and stay
+on the evacuation list. `POST /api/cron/auto-close` closes any record left open
+past `AUTO_CLOSE_MAX_HOURS`, stamping the sign-out at that day's
+`AUTO_CLOSE_CUTOFF` where that falls inside the shift, and writes an
+`AutoSignOut` audit entry for each one.
+
+The check is elapsed time rather than calendar date, so a night-shift worker who
+started at 11pm and is still on site at 2am is left alone.
+
+Add a nightly task in Synology **Control Panel → Task Scheduler** (2am suits,
+since it is after any late shift has ended):
+
+```bash
+curl -fsS -X POST https://<host>/api/cron/auto-close \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Preview without changing anything by appending `?dryRun=1`. A signed-in admin
+can also run it from the browser without the secret.
 
 ## Documentation
 
