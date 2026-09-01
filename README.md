@@ -27,6 +27,8 @@ Copy `.env.example` to `.env` and fill in:
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
 - `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
 - `INDUCTION_VALIDITY_DAYS` — optional, default `365`. How long a site induction stays valid before it must be run again.
+- `DATA_RETENTION_YEARS` — optional, default `7`. Stated in the collection notice; changing it changes the notice version.
+- `PRIVACY_CONTACT` — optional. Named in the notice as who to ask about personal information.
 
 ## Induction expiry
 
@@ -77,6 +79,25 @@ worker was shown, which is the whole point of keeping the record.
 Admin → Inductions lists the signed records with site and date filters, and
 opening one shows the signature and the rules that were accepted. Inductions
 completed before this shipped have no signature and say so.
+
+## Privacy notice
+
+Worker and visitor registration shows a collection notice and will not submit
+without an acknowledgement. The acceptance records which wording was shown, so
+editing the notice (or changing `DATA_RETENTION_YEARS`) produces a new version
+and older acceptances stay distinguishable.
+
+The notice is served from `/api/privacy` rather than copied into the page, so
+the text a person reads is the same text the version is computed from. The
+wording is a plain-language draft covering what the Australian Privacy Act
+expects at the point of collection — it is not legal advice and should be read
+by whoever is accountable for the business's privacy obligations.
+
+`PRIVACY_CONTACT` is the name shown in the "how to ask" section. The two
+acceptance columns are created in NocoDB on first use.
+
+This records consent. It does not yet age records out — that is a separate
+retention step.
 
 ## Duplicate registrations
 

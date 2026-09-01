@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, findSiteByCode } from "@/lib/nocodb";
+import { TABLES, create, findSiteByCode, ensurePrivacyColumns } from "@/lib/nocodb";
 import { getClientIP, nowISO, generateUUID, createVisitorPass } from "@/lib/auth";
 import { guard, HOUR } from "@/lib/rate-limit";
+import { privacyAcceptance } from "@/lib/privacy";
 
 export async function POST(request: Request) {
   try {
@@ -9,11 +10,17 @@ export async function POST(request: Request) {
       siteCode, firstName, lastName, mobile, email,
       companyName, reasonForVisit, personVisiting,
       emergencyContactName, emergencyContactPhone,
-      acknowledgedSiteRules,
+      acknowledgedSiteRules, privacyAccepted,
     } = await request.json();
 
     if (!siteCode || !firstName || !lastName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    if (privacyAccepted !== true) {
+      return NextResponse.json(
+        { error: "Please confirm you have read how your details are used." },
+        { status: 400 }
+      );
     }
 
     const limit = guard(request, "register-visitor", {
@@ -33,8 +40,10 @@ export async function POST(request: Request) {
     const ip = getClientIP(request);
     const ua = request.headers.get("user-agent") || "";
 
+    await ensurePrivacyColumns("visitors");
     const visitorId = await create(TABLES.Visitors, {
       VisitorUUID: generateUUID(),
+      ...privacyAcceptance(now),
       FirstName: firstName,
       LastName: lastName,
       Mobile: mobile || null,

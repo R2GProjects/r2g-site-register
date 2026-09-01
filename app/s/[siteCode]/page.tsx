@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 interface SiteData {
   SiteUUID: string;
@@ -42,6 +43,7 @@ export default function SitePage() {
     emergencyContactName: "", emergencyContactPhone: "",
     passcode: "",
   });
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [signInLoading, setSignInLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
 
@@ -118,6 +120,10 @@ export default function SitePage() {
       setRegError("First and last name are required");
       return;
     }
+    if (!privacyAccepted) {
+      setRegError("Please confirm you have read how your details are used.");
+      return;
+    }
     setRegError("");
     setRegLoading(true);
     try {
@@ -129,6 +135,7 @@ export default function SitePage() {
           ...regForm,
           acknowledgedSiteRules: true,
           fitForWorkConfirmed: true,
+          privacyAccepted,
         }),
       });
       const data = await res.json();
@@ -344,6 +351,8 @@ export default function SitePage() {
                       You sign in with your mobile number and this passcode, so a mobile number is required to use one.
                     </p>
                   </div>
+
+                  <PrivacyNotice accepted={privacyAccepted} onChange={setPrivacyAccepted} />
 
                   {regError && <div className="error" style={{ marginBottom: 16 }}>{regError}</div>}
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, numericId } from "@/lib/nocodb";
+import { TABLES, create, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns, numericId } from "@/lib/nocodb";
+import { privacyAcceptance } from "@/lib/privacy";
 import {
   generateAccessToken,
   hashToken,
@@ -20,11 +21,17 @@ export async function POST(request: Request) {
       companyId, companyName, companyABN,
       workerType, jobRole, whiteCardNumber, whiteCardExpiry,
       licenceNumber, licenceType, licenceExpiry,
-      emergencyContactName, emergencyContactPhone, passcode,
+      emergencyContactName, emergencyContactPhone, passcode, privacyAccepted,
     } = await request.json();
 
     if (!firstName || !lastName) {
       return NextResponse.json({ error: "Missing required fields: firstName, lastName" }, { status: 400 });
+    }
+    if (privacyAccepted !== true) {
+      return NextResponse.json(
+        { error: "Please confirm you have read how your details are used." },
+        { status: 400 }
+      );
     }
 
     const limit = guard(request, "register-worker", {
@@ -78,8 +85,10 @@ export async function POST(request: Request) {
     const tokenHash = hashToken(token);
     const now = nowISO();
 
+    await ensurePrivacyColumns("people");
     const personId = await create(TABLES.People, {
       PersonUUID: generateUUID(),
+      ...privacyAcceptance(now),
       FirstName: firstName,
       LastName: lastName,
       Mobile: mobile || null,

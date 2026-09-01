@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns } from "@/lib/nocodb";
+import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns } from "@/lib/nocodb";
 import {
   generateAccessToken,
   hashToken,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth";
 import { resolveOrCreateCompany } from "@/lib/company";
 import { findDuplicatePerson } from "@/lib/person-auth";
+import { privacyAcceptance } from "@/lib/privacy";
 import { guard, HOUR } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -26,12 +27,18 @@ export async function POST(request: Request) {
       workerType, jobRole, whiteCardNumber, whiteCardExpiry,
       licenceNumber, licenceType, licenceExpiry,
       emergencyContactName, emergencyContactPhone,
-      acknowledgedSiteRules, fitForWorkConfirmed, passcode,
+      acknowledgedSiteRules, fitForWorkConfirmed, passcode, privacyAccepted,
     } = await request.json();
 
     if (!siteCode || !firstName || !lastName) {
       return NextResponse.json(
         { error: "Missing required fields: siteCode, firstName, lastName" },
+        { status: 400 }
+      );
+    }
+    if (privacyAccepted !== true) {
+      return NextResponse.json(
+        { error: "Please confirm you have read how your details are used." },
         { status: 400 }
       );
     }
@@ -103,16 +110,26 @@ export async function POST(request: Request) {
 
     if (existing) {
       // Recovery: the passcode proved who they are, so reuse the record.
+      // They have just accepted the current notice, so stamp it — people
+      // registered before the notice existed would otherwise never have one.
       personId = existing.Id;
       personUUID = existing.PersonUUID;
       companyRowId = existing.Companies_id ?? null;
+      await ensurePrivacyColumns("people");
+      await update(TABLES.People, {
+        Id: personId,
+        ...privacyAcceptance(now),
+        UpdatedAt1: now,
+      });
     } else {
       if (whiteCardExpiry || licenceExpiry) await ensureCredentialColumns();
       companyRowId = await resolveOrCreateCompany(companyName, companyABN);
       token = generateAccessToken();
       personUUID = generateUUID();
+      await ensurePrivacyColumns("people");
       personId = await create(TABLES.People, {
         PersonUUID: personUUID,
+        ...privacyAcceptance(now),
         FirstName: firstName,
         LastName: lastName,
         Mobile: mobile || null,

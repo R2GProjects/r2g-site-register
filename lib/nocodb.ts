@@ -98,6 +98,19 @@ export async function ensureInductionColumns(): Promise<void> {
   ]);
 }
 
+/** When a person accepted the collection notice, and which wording. */
+export async function ensurePrivacyColumns(table: "people" | "visitors"): Promise<void> {
+  const spec = [
+    { title: "PrivacyAcceptedAt", uidt: "DateTime" },
+    { title: "PrivacyVersion", uidt: "SingleLineText" },
+  ];
+  await ensureColumns(
+    `privacy-${table}`,
+    table === "people" ? TABLES.People : TABLES.Visitors,
+    spec
+  );
+}
+
 export async function list<T>(
   tableId: string,
   params?: {

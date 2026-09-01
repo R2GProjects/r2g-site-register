@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 const emptyRegForm = {
   firstName: "", lastName: "", mobile: "", email: "",
@@ -25,6 +26,7 @@ export default function HomePage() {
   const [sites, setSites] = useState<Array<Record<string, unknown>>>([]);
   const [regForm, setRegForm] = useState({ ...emptyRegForm });
   const [regLoading, setRegLoading] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [regResult, setRegResult] = useState<{ accessToken?: string; passcode?: string | null; note?: string } | null>(null);
   const router = useRouter();
 
@@ -32,6 +34,7 @@ export default function HomePage() {
     setMode("register");
     setError("");
     setRegResult(null);
+    setPrivacyAccepted(false);
     setRegForm({ ...emptyRegForm });
     fetch("/api/sites")
       .then(r => r.json())
@@ -90,6 +93,10 @@ export default function HomePage() {
       setError("First and last name are required");
       return;
     }
+    if (!privacyAccepted) {
+      setError("Please confirm you have read how your details are used.");
+      return;
+    }
     setError("");
     setRegLoading(true);
     try {
@@ -99,6 +106,7 @@ export default function HomePage() {
         body: JSON.stringify({
           ...regForm,
           siteCode: regForm.siteCode.trim() || undefined,
+          privacyAccepted,
         }),
       });
       const data = await res.json();
@@ -362,6 +370,7 @@ export default function HomePage() {
                         You sign in with your mobile number and this passcode, so a mobile number is required to use one.
                       </p>
                     </div>
+                    <PrivacyNotice accepted={privacyAccepted} onChange={setPrivacyAccepted} />
                     <button className="btn btn-primary btn-block" type="submit" disabled={regLoading}>
                       {regLoading ? <div className="spinner" /> : "Register"}
                     </button>
@@ -427,4 +436,4 @@ export default function HomePage() {
       </div>
     </div>
   );
-}
+} 

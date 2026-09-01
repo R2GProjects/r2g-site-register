@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { contentVersion } from "@/lib/content-version";
 
 const DAY_MS = 86_400_000;
 
@@ -20,12 +20,7 @@ export const MAX_SIGNATURE_BYTES = 200 * 1024;
  * the wording untouched does not invalidate everyone's induction.
  */
 export function rulesVersion(rules: unknown): string {
-  const text = String(rules ?? "")
-    .replace(/\r\n/g, "\n")
-    .trim();
-  if (!text) return "rules-none";
-  const digest = createHash("sha256").update(text, "utf8").digest("hex");
-  return `rules-${digest.slice(0, 12)}`;
+  return contentVersion("rules", rules);
 }
 
 /**

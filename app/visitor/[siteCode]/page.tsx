@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 export default function VisitorPage() {
   const params = useParams();
@@ -15,6 +16,7 @@ export default function VisitorPage() {
     emergencyContactName: "", emergencyContactPhone: "",
     acknowledgedSiteRules: true,
   });
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
     siteName?: string;
@@ -37,13 +39,17 @@ export default function VisitorPage() {
       setError("First and last name are required");
       return;
     }
+    if (!privacyAccepted) {
+      setError("Please confirm you have read how your details are used.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
       const res = await fetch("/api/register/visitor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteCode, ...form }),
+        body: JSON.stringify({ siteCode, ...form, privacyAccepted }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -153,6 +159,8 @@ export default function VisitorPage() {
               I acknowledge site safety rules
             </label>
           </div>
+
+          <PrivacyNotice accepted={privacyAccepted} onChange={setPrivacyAccepted} />
 
           {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
 

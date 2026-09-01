@@ -61,6 +61,8 @@ export interface Person {
   AccessTokenHash: string | null;
   PasscodeHash: string | null;
   AccessEnabled: boolean;
+  PrivacyAcceptedAt: string | null;
+  PrivacyVersion: string | null;
   Photo: string | null;
   Notes: string | null;
   Companies_id: number | null;
@@ -128,6 +130,8 @@ export interface Visitor {
   EmergencyContactName: string | null;
   EmergencyContactPhone: string | null;
   Notes: string | null;
+  PrivacyAcceptedAt: string | null;
+  PrivacyVersion: string | null;
   CreatedAt1: string;
 }
 

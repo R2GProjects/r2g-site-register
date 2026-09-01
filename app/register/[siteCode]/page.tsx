@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 export default function RegisterWorkerPage() {
   const params = useParams();
@@ -15,6 +16,7 @@ export default function RegisterWorkerPage() {
     licenceNumber: "", licenceType: "",
     emergencyContactName: "", emergencyContactPhone: "",
   });
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ accessToken?: string; note?: string } | null>(null);
   const [error, setError] = useState("");
@@ -29,13 +31,17 @@ export default function RegisterWorkerPage() {
       setError("First and last name are required");
       return;
     }
+    if (!privacyAccepted) {
+      setError("Please confirm you have read how your details are used.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
       const res = await fetch("/api/register/worker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteCode, ...form }),
+        body: JSON.stringify({ siteCode, ...form, privacyAccepted }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -150,6 +156,8 @@ export default function RegisterWorkerPage() {
             <label>Emergency Contact Phone</label>
             <input name="emergencyContactPhone" type="tel" value={form.emergencyContactPhone} onChange={handleChange} />
           </div>
+
+          <PrivacyNotice accepted={privacyAccepted} onChange={setPrivacyAccepted} />
 
           {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
 
