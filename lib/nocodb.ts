@@ -115,16 +115,27 @@ export async function findSiteByCode(
   code: string,
   fields = "Id,SiteUUID,SiteCode,SiteName,Status"
 ): Promise<Record<string, unknown> | null> {
-  const needle = code.trim().toLowerCase();
+  const needle = code.trim();
   if (!needle) return null;
-  const sites = await list<Record<string, unknown>>(TABLES.Sites, {
+
+  // Filtered in the query rather than scanning the table, which used to cap the
+  // register at 200 sites and then fail with an unexplained "Site not found".
+  // The comparison is case-sensitive in the database, so the case variants a
+  // worker might type or paste are matched explicitly.
+  const variants = [...new Set([needle.toUpperCase(), needle.toLowerCase(), needle])];
+  const where = variants
+    .map((v) => `(SiteCode,eq,${escapeWhereValue(v)})`)
+    .join("~or");
+
+  const matches = await list<Record<string, unknown>>(TABLES.Sites, {
+    where,
     fields,
-    limit: 200,
+    limit: variants.length,
   });
+
+  const lower = needle.toLowerCase();
   return (
-    sites.find(
-      (s) => String(s.SiteCode || "").toLowerCase() === needle
-    ) ?? null
+    matches.find((s) => String(s.SiteCode || "").toLowerCase() === lower) ?? null
   );
 }
 
@@ -187,7 +198,7 @@ export async function attachVisitorDetails<T extends Record<string, unknown>>(
   if (ids.length === 0) return records;
   const visitors = await list<Record<string, unknown>>(TABLES.Visitors, {
     where: `(Id,in,${ids.join(",")})`,
-    fields: "Id,FirstName,LastName",
+    fields: "Id,FirstName,LastName,ReasonForVisit,PersonVisiting,Mobile,CompanyName",
     limit: ids.length,
   });
   const map = new Map(visitors.map(v => [v.Id as number, v]));
