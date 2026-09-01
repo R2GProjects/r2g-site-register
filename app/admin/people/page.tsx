@@ -1,6 +1,51 @@
 "use client";
 import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
+import type { CredentialState } from "@/lib/credentials";
+
+/** A date input only accepts YYYY-MM-DD, but the stored value may carry a time. */
+function dateValue(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  return raw ? raw.slice(0, 10) : "";
+}
+
+const CREDENTIAL_BADGE: Record<
+  CredentialState["status"],
+  { className: string; label: (c: CredentialState) => string } | null
+> = {
+  expired: {
+    className: "badge badge-suspended",
+    label: (c) => `${c.label} expired`,
+  },
+  expiring: {
+    className: "badge badge-pending",
+    label: (c) =>
+      `${c.label} due in ${Math.max(0, c.daysRemaining ?? 0)}d`,
+  },
+  unverified: {
+    className: "badge badge-signedout",
+    label: (c) => `${c.label}: no expiry`,
+  },
+  missing: null,
+  valid: null,
+};
+
+function CredentialBadges({ credentials }: { credentials?: CredentialState[] }) {
+  const shown = (credentials || []).filter((c) => CREDENTIAL_BADGE[c.status]);
+  if (shown.length === 0) return <span style={{ color: "var(--muted)" }}>-</span>;
+  return (
+    <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {shown.map((c) => {
+        const badge = CREDENTIAL_BADGE[c.status]!;
+        return (
+          <span key={c.key} className={badge.className}>
+            {badge.label(c)}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 export default function PeoplePage() {
   const [people, setPeople] = useState<Array<Record<string,unknown>>>([]);
@@ -24,8 +69,9 @@ export default function PeoplePage() {
 
   const defaultForm: Record<string,unknown> = {
     FirstName: "", LastName: "", Mobile: "", Email: "",
-    JobRole: "", WorkerType: "Contractor", WhiteCardNumber: "",
-    LicenceNumber: "", LicenceType: "",
+    JobRole: "", WorkerType: "Contractor",
+    WhiteCardNumber: "", WhiteCardExpiry: "",
+    LicenceNumber: "", LicenceType: "", LicenceExpiry: "",
     EmergencyContactName: "", EmergencyContactPhone: "",
     AccessEnabled: true, Notes: "", passcode: "",
   };
@@ -206,7 +252,7 @@ export default function PeoplePage() {
       {loading ? <div className="loading"><div className="spinner" /></div> : (
         <div style={{ overflowX: "auto" }}>
           <table>
-            <thead><tr><th>Name</th><th>Signed in</th><th>Mobile</th><th>Email</th><th>Type</th><th>Role</th><th>Access</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Signed in</th><th>Mobile</th><th>Email</th><th>Type</th><th>Role</th><th>Tickets</th><th>Access</th><th></th></tr></thead>
             <tbody>
               {people.map(p => (
                 <tr key={p.Id as number}>
@@ -223,6 +269,7 @@ export default function PeoplePage() {
                   <td>{(p.Email as string) || "-"}</td>
                   <td><span className="badge badge-active">{(p.WorkerType as string) || "-"}</span></td>
                   <td>{(p.JobRole as string) || "-"}</td>
+                  <td><CredentialBadges credentials={p.credentials as CredentialState[] | undefined} /></td>
                   <td>{p.AccessEnabled ? <span className="badge badge-active">Enabled</span> : <span className="badge badge-suspended">Disabled</span>}</td>
                   <td style={{ display: "flex", gap: 4 }}>
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 8px", fontSize: "0.7rem" }} onClick={() => openEdit(p)}>Edit</button>
@@ -267,8 +314,16 @@ export default function PeoplePage() {
           </div>
           <div className="form-group"><label>Job Role</label><input name="JobRole" value={(form.JobRole as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>White Card Number</label><input name="WhiteCardNumber" value={(form.WhiteCardNumber as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group">
+            <label>White Card Expiry</label>
+            <input name="WhiteCardExpiry" type="date" value={dateValue(form.WhiteCardExpiry)} onChange={handleFormChange} />
+            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+              Once set, sign-in is blocked from the day after this date.
+            </span>
+          </div>
           <div className="form-group"><label>Licence Number</label><input name="LicenceNumber" value={(form.LicenceNumber as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Licence Type</label><input name="LicenceType" value={(form.LicenceType as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Licence Expiry</label><input name="LicenceExpiry" type="date" value={dateValue(form.LicenceExpiry)} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Emergency Contact Name</label><input name="EmergencyContactName" value={(form.EmergencyContactName as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Emergency Contact Phone</label><input name="EmergencyContactPhone" value={(form.EmergencyContactPhone as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label className="checkbox-label"><input type="checkbox" name="AccessEnabled" checked={(form.AccessEnabled as boolean) || false} onChange={handleFormChange} />Access Enabled</label></div>

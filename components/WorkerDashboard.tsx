@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
+import type { CredentialState } from "@/lib/credentials";
 
 interface WorkerData {
   person: {
@@ -23,6 +24,7 @@ interface WorkerData {
     Id: number; Status: string; SignInTime: string;
     Site: { Id: number; SiteUUID: string; SiteCode?: string; SiteName?: string } | number;
   };
+  credentials?: CredentialState[];
 }
 
 /**
@@ -185,6 +187,12 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
     ? onsite.Site.SiteName || onsite.Site.SiteCode
     : null;
 
+  // Only the ones needing action are worth a card; a valid ticket is noise.
+  const tickets = (data.credentials || []).filter(
+    (c) => c.status === "expired" || c.status === "expiring"
+  );
+  const hasExpiredTicket = tickets.some((c) => c.status === "expired");
+
   const workerDashboardUrl =
     accessToken && typeof window !== "undefined"
       ? `${window.location.origin}/w/${accessToken}`
@@ -215,6 +223,43 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
             </p>
           )}
         </div>
+
+        {tickets.length > 0 && (
+          <div
+            className="card"
+            style={{
+              borderColor: hasExpiredTicket ? "var(--danger)" : undefined,
+            }}
+          >
+            <p style={{ fontWeight: 600, marginBottom: 8 }}>Your tickets</p>
+            {tickets.map((c) => (
+              <div key={c.key} style={{ marginBottom: 8 }}>
+                <span
+                  className={
+                    c.status === "expired"
+                      ? "badge badge-suspended"
+                      : "badge badge-pending"
+                  }
+                >
+                  {c.status === "expired" ? "Expired" : "Expiring"}
+                </span>
+                <span style={{ marginLeft: 8 }}>{c.label}</span>
+                {c.expiresAt && (
+                  <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: 2 }}>
+                    {c.status === "expired"
+                      ? `Expired ${c.expiresAt}.`
+                      : `Expires ${c.expiresAt} — ${Math.max(0, c.daysRemaining ?? 0)} days left.`}
+                  </p>
+                )}
+              </div>
+            ))}
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+              {hasExpiredTicket
+                ? "You cannot sign in to a site until this is renewed. Send the new details to your site supervisor."
+                : "Renew before the date above so you are not turned away at the gate."}
+            </p>
+          </div>
+        )}
 
         {workerDashboardUrl && (
           <div className="card" style={{ textAlign: "center" }}>

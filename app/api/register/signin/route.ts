@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn } from "@/lib/nocodb";
+import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns } from "@/lib/nocodb";
 import {
   generateAccessToken,
   hashToken,
@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     const {
       siteCode, firstName, lastName, mobile, email,
       companyName, companyABN,
-      workerType, jobRole, whiteCardNumber, licenceNumber, licenceType,
+      workerType, jobRole, whiteCardNumber, whiteCardExpiry,
+      licenceNumber, licenceType, licenceExpiry,
       emergencyContactName, emergencyContactPhone,
       acknowledgedSiteRules, fitForWorkConfirmed, passcode,
     } = await request.json();
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
       personUUID = existing.PersonUUID;
       companyRowId = existing.Companies_id ?? null;
     } else {
+      if (whiteCardExpiry || licenceExpiry) await ensureCredentialColumns();
       companyRowId = await resolveOrCreateCompany(companyName, companyABN);
       token = generateAccessToken();
       personUUID = generateUUID();
@@ -119,8 +121,10 @@ export async function POST(request: Request) {
         WorkerType: workerType || "Contractor",
         JobRole: jobRole || null,
         WhiteCardNumber: whiteCardNumber || null,
+        WhiteCardExpiry: whiteCardExpiry || null,
         LicenceNumber: licenceNumber || null,
         LicenceType: licenceType || null,
+        LicenceExpiry: licenceExpiry || null,
         EmergencyContactName: emergencyContactName || null,
         EmergencyContactPhone: emergencyContactPhone || null,
         AccessTokenHash: hashToken(token),

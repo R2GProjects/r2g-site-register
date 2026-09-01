@@ -26,26 +26,60 @@ export function nocodbUrl(tableId: string): string {
   return `${BASE_URL}/tables/${tableId}/records`;
 }
 
-let passcodeColumnReady: Promise<void> | null = null;
+const columnsReady = new Map<string, Promise<void>>();
 
-export async function ensurePasscodeColumn(): Promise<void> {
-  if (!passcodeColumnReady) {
-    passcodeColumnReady = (async () => {
-      const res = await fetch(`${NOCODB_URL}/api/v2/meta/tables/${TABLES.People}/columns`, {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({
-          column_name: "PasscodeHash",
-          title: "PasscodeHash",
-          uidt: "SingleLineText",
-        }),
-      });
-      if (!res.ok && res.status !== 400 && res.status !== 409) {
-        await res.text();
+/**
+ * Add columns if the table does not already have them.
+ *
+ * NocoDB answers an existing column with a 400 or 409, which is the expected
+ * outcome on every call after the first and is not an error. The result is
+ * cached per key so this costs one request per process rather than one per
+ * sign-in, and a failure is swallowed: a schema call that did not land must not
+ * take down the request that triggered it.
+ */
+async function ensureColumns(
+  key: string,
+  tableId: string,
+  specs: Array<{ title: string; uidt: string }>
+): Promise<void> {
+  let pending = columnsReady.get(key);
+  if (!pending) {
+    pending = (async () => {
+      for (const spec of specs) {
+        const res = await fetch(
+          `${NOCODB_URL}/api/v2/meta/tables/${tableId}/columns`,
+          {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({
+              column_name: spec.title,
+              title: spec.title,
+              uidt: spec.uidt,
+            }),
+          }
+        );
+        if (!res.ok && res.status !== 400 && res.status !== 409) {
+          await res.text();
+        }
       }
     })().catch(() => undefined);
+    columnsReady.set(key, pending);
   }
-  await passcodeColumnReady;
+  await pending;
+}
+
+export async function ensurePasscodeColumn(): Promise<void> {
+  await ensureColumns("passcode", TABLES.People, [
+    { title: "PasscodeHash", uidt: "SingleLineText" },
+  ]);
+}
+
+/** Expiry dates for the tickets a worker needs to be on site. */
+export async function ensureCredentialColumns(): Promise<void> {
+  await ensureColumns("credentials", TABLES.People, [
+    { title: "WhiteCardExpiry", uidt: "Date" },
+    { title: "LicenceExpiry", uidt: "Date" },
+  ]);
 }
 
 export async function list<T>(

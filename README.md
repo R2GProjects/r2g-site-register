@@ -39,6 +39,30 @@ so they do lapse — but a record with no usable date at all is treated as valid
 because turning someone away over missing data is the wrong way to fail. Expect
 a wave of re-inductions on older sites after the first deploy.
 
+## White card and licence expiry
+
+A white card is a legal prerequisite for construction work, so sign-in is
+blocked once a recorded expiry date has passed, naming the ticket that lapsed.
+
+Nothing is enforced until a date exists. No expiry is stored anywhere today, so
+nobody is locked out by deploying this — enforcement arrives one worker at a
+time as the dates are entered in Admin → People. A worker with no card on
+record, or with a date the app cannot read, is still let through and flagged in
+the admin list instead; refusing entry over missing data is the wrong way to
+fail.
+
+A card is valid for the whole of its expiry day. Dates carry no timezone and a
+licence is not tied to a site, so end of day resolves in UTC, which in
+Australian time leaves a card valid into the following morning. The error runs
+in the worker's favour, which is the right direction for a rule that stops
+someone earning.
+
+`CREDENTIAL_WARN_DAYS` (default 30) sets how far ahead a ticket is flagged as
+expiring, on the worker dashboard and in the admin list.
+
+The two expiry columns are created in NocoDB on first use, so no manual schema
+change is needed.
+
 ## Duplicate registrations
 
 Registering again is what someone does when they have forgotten how to sign in,

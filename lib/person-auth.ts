@@ -1,4 +1,12 @@
-import { TABLES, list, update, ensurePasscodeColumn, escapeWhereValue } from "@/lib/nocodb";
+import {
+  TABLES,
+  list,
+  update,
+  ensurePasscodeColumn,
+  ensureCredentialColumns,
+  escapeWhereValue,
+} from "@/lib/nocodb";
+import type { CredentialSource } from "@/lib/credentials";
 import {
   hashPasscode,
   hashToken,
@@ -73,6 +81,34 @@ async function findPeopleByMobile(mobile: string): Promise<Person[]> {
 
 export function normalizeEmail(email: unknown): string {
   return String(email ?? "").trim().toLowerCase();
+}
+
+const CREDENTIAL_FIELDS =
+  "Id,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry";
+
+/**
+ * The ticket fields for one person.
+ *
+ * Fetched on its own rather than widening the sign-in select, because the two
+ * expiry columns are added at runtime and a select naming a column that is not
+ * there yet would fail the whole query. Any failure returns null, which reads
+ * downstream as nothing on record and lets the worker through — a schema call
+ * that did not land must not become a locked gate.
+ */
+export async function fetchCredentials(
+  personId: number
+): Promise<CredentialSource | null> {
+  try {
+    await ensureCredentialColumns();
+    const rows = await list<CredentialSource>(TABLES.People, {
+      where: `(Id,eq,${personId})`,
+      limit: 1,
+      fields: CREDENTIAL_FIELDS,
+    });
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

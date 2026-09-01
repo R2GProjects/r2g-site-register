@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn, escapeLikeValue, numericId } from "@/lib/nocodb";
+import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn, ensureCredentialColumns, escapeLikeValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, generateUUID, generateAccessToken, hashToken, hashPasscode, normalizeMobile, validatePasscode } from "@/lib/auth";
 import type { Person } from "@/lib/types";
+import {
+  credentialWarnDays,
+  evaluateCredentials,
+  type CredentialSource,
+} from "@/lib/credentials";
 
 async function passcodeFields(
   passcode: unknown,
@@ -37,15 +42,25 @@ export async function GET(request: Request) {
       where = `(FirstName,like,%${term}%)~or(LastName,like,%${term}%)`;
     }
 
+    await ensureCredentialColumns();
     const result = await listPage<Person>(TABLES.People, {
       where,
       limit,
       offset,
       sort: "-UpdatedAt1",
-      fields: "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled",
+      fields:
+        "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry",
     });
 
-    return NextResponse.json(result);
+    // Evaluated server-side so the list and the gate cannot disagree about
+    // whose tickets have lapsed.
+    const warnDays = credentialWarnDays();
+    const withCredentials = result.list.map((p) => ({
+      ...p,
+      credentials: evaluateCredentials(p as CredentialSource, { warnDays }),
+    }));
+
+    return NextResponse.json({ ...result, list: withCredentials });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
@@ -61,6 +76,7 @@ export async function POST(request: Request) {
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
+    await ensureCredentialColumns();
     const now = nowISO();
     const token = generateAccessToken();
     const id = await create(TABLES.People, {
@@ -73,8 +89,10 @@ export async function POST(request: Request) {
       WorkerType: body.WorkerType || null,
       JobRole: body.JobRole || null,
       WhiteCardNumber: body.WhiteCardNumber || null,
+      WhiteCardExpiry: body.WhiteCardExpiry || null,
       LicenceNumber: body.LicenceNumber || null,
       LicenceType: body.LicenceType || null,
+      LicenceExpiry: body.LicenceExpiry || null,
       EmergencyContactName: body.EmergencyContactName || null,
       EmergencyContactPhone: body.EmergencyContactPhone || null,
       AccessTokenHash: hashToken(token),
@@ -114,7 +132,10 @@ export async function PATCH(request: Request) {
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
-    const { passcode: _passcode, ...rest } = body;
+    if ("WhiteCardExpiry" in body || "LicenceExpiry" in body) {
+      await ensureCredentialColumns();
+    }
+    const { passcode: _passcode, credentials: _credentials, ...rest } = body;
     await update(TABLES.People, {
       ...rest,
       ...(hashed.PasscodeHash ? { PasscodeHash: hashed.PasscodeHash } : {}),

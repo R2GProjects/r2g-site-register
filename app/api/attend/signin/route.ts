@@ -9,9 +9,14 @@ import {
   WORKER_COOKIE,
   WORKER_MAX_AGE,
 } from "@/lib/auth";
-import { resolvePersonFromRequest } from "@/lib/person-auth";
+import { resolvePersonFromRequest, fetchCredentials } from "@/lib/person-auth";
 import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
 import { inductionState, inductionValidityDays } from "@/lib/induction";
+import {
+  blockedMessage,
+  blockingCredentials,
+  evaluateCredentials,
+} from "@/lib/credentials";
 
 function signedInResponse(payload: Record<string, unknown>, personId: number) {
   const resp = NextResponse.json(payload);
@@ -55,6 +60,34 @@ export async function POST(request: Request) {
     if (!person.AccessEnabled) {
       return NextResponse.json({ error: "Access disabled" }, { status: 403 });
     }
+
+    // Tickets are a property of the person, not the site, so this is settled
+    // before any site access row is touched. Only a recorded date that has
+    // passed stops anyone; a worker with nothing on record is let through and
+    // flagged to an administrator instead.
+    const credentials = evaluateCredentials(await fetchCredentials(person.Id));
+    const blocking = blockingCredentials(credentials);
+    if (blocking.length > 0) {
+      return NextResponse.json(
+        {
+          error: blockedMessage(blocking),
+          credentialExpired: true,
+          credentials: blocking.map((c) => ({
+            label: c.label,
+            expiresAt: c.expiresAt,
+          })),
+        },
+        { status: 403 }
+      );
+    }
+    // Worth a word on the way in, while there is still time to book a renewal.
+    const expiring = credentials
+      .filter((c) => c.status === "expiring")
+      .map((c) => ({
+        label: c.label,
+        expiresAt: c.expiresAt,
+        daysRemaining: c.daysRemaining,
+      }));
 
     const site = await findSiteByCode(
       siteCode,
@@ -148,6 +181,7 @@ export async function POST(request: Request) {
             site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
             signedInAt: existing[0].SignInTime,
             alreadyOnSite: true,
+            expiringCredentials: expiring,
           },
           person.Id
         );
@@ -186,6 +220,7 @@ export async function POST(request: Request) {
         person: { Id: person.Id, FirstName: person.FirstName, LastName: person.LastName },
         site: { Id: site.Id, SiteCode: site.SiteCode, SiteName: site.SiteName },
         signedInAt: now,
+        expiringCredentials: expiring,
       },
       person.Id
     );

@@ -37,7 +37,8 @@ export default function SitePage() {
   const [regForm, setRegForm] = useState({
     firstName: "", lastName: "", mobile: "", email: "",
     companyName: "", workerType: "Contractor", jobRole: "",
-    whiteCardNumber: "", licenceNumber: "", licenceType: "",
+    whiteCardNumber: "", whiteCardExpiry: "",
+    licenceNumber: "", licenceType: "",
     emergencyContactName: "", emergencyContactPhone: "",
     passcode: "",
   });
@@ -315,6 +316,10 @@ export default function SitePage() {
                   <div className="form-group">
                     <label>White Card Number</label>
                     <input name="whiteCardNumber" value={regForm.whiteCardNumber} onChange={handleRegChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>White Card Expiry</label>
+                    <input name="whiteCardExpiry" type="date" value={regForm.whiteCardExpiry} onChange={handleRegChange} />
                   </div>
                   <div className="form-group">
                     <label>Licence Number</label>

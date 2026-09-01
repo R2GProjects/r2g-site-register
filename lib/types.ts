@@ -50,9 +50,11 @@ export interface Person {
   EmergencyContactName: string | null;
   EmergencyContactPhone: string | null;
   WhiteCardNumber: string | null;
+  WhiteCardExpiry: string | null;
   WhiteCardVerified: boolean;
   LicenceNumber: string | null;
   LicenceType: string | null;
+  LicenceExpiry: string | null;
   InductionStatus: string | null;
   InductionDate: string | null;
   InductionExpiry: string | null;

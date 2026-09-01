@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { TABLES, list } from "@/lib/nocodb";
-import { resolvePersonFromRequest } from "@/lib/person-auth";
+import { resolvePersonFromRequest, fetchCredentials } from "@/lib/person-auth";
 import { createWorkerSession, readWorkerSession, WORKER_COOKIE, WORKER_MAX_AGE } from "@/lib/auth";
 import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
 import { inductionState, inductionValidityDays } from "@/lib/induction";
+import { evaluateCredentials } from "@/lib/credentials";
 
 export async function POST(request: Request) {
   try {
@@ -91,11 +92,16 @@ export async function POST(request: Request) {
         }
       : null;
 
+    // Shown on the dashboard so a lapsed ticket is discovered at home rather
+    // than at the gate, when there is still time to do something about it.
+    const credentials = evaluateCredentials(await fetchCredentials(person.Id));
+
     const { AccessTokenHash: _tokenHash, PasscodeHash: _passHash, ...safePerson } = person;
     const resp = NextResponse.json({
       person: safePerson,
       siteAccess: enrichedAccess,
       onsite,
+      credentials,
     });
     resp.cookies.set(WORKER_COOKIE, createWorkerSession(person.Id), {
       httpOnly: true,

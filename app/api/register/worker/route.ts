@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, findSiteByCode, ensurePasscodeColumn, numericId } from "@/lib/nocodb";
+import { TABLES, create, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, numericId } from "@/lib/nocodb";
 import {
   generateAccessToken,
   hashToken,
@@ -18,7 +18,8 @@ export async function POST(request: Request) {
     const {
       siteCode, firstName, lastName, mobile, email,
       companyId, companyName, companyABN,
-      workerType, jobRole, whiteCardNumber, licenceNumber, licenceType,
+      workerType, jobRole, whiteCardNumber, whiteCardExpiry,
+      licenceNumber, licenceType, licenceExpiry,
       emergencyContactName, emergencyContactPhone, passcode,
     } = await request.json();
 
@@ -71,6 +72,8 @@ export async function POST(request: Request) {
       passcodeHash = hashPasscode(String(passcode));
     }
 
+    if (whiteCardExpiry || licenceExpiry) await ensureCredentialColumns();
+
     const token = generateAccessToken();
     const tokenHash = hashToken(token);
     const now = nowISO();
@@ -85,8 +88,10 @@ export async function POST(request: Request) {
       WorkerType: workerType || "Contractor",
       JobRole: jobRole || null,
       WhiteCardNumber: whiteCardNumber || null,
+      WhiteCardExpiry: whiteCardExpiry || null,
       LicenceNumber: licenceNumber || null,
       LicenceType: licenceType || null,
+      LicenceExpiry: licenceExpiry || null,
       EmergencyContactName: emergencyContactName || null,
       EmergencyContactPhone: emergencyContactPhone || null,
       AccessTokenHash: tokenHash,

@@ -11,7 +11,8 @@ export default function RegisterWorkerPage() {
   const [form, setForm] = useState({
     firstName: "", lastName: "", mobile: "", email: "",
     companyName: "", workerType: "Contractor", jobRole: "",
-    whiteCardNumber: "", licenceNumber: "", licenceType: "",
+    whiteCardNumber: "", whiteCardExpiry: "",
+    licenceNumber: "", licenceType: "",
     emergencyContactName: "", emergencyContactPhone: "",
   });
   const [loading, setLoading] = useState(false);
@@ -128,6 +129,10 @@ export default function RegisterWorkerPage() {
           <div className="form-group">
             <label>White Card Number</label>
             <input name="whiteCardNumber" value={form.whiteCardNumber} onChange={handleChange} />
+          </div>
+          <div className="form-group">
+            <label>White Card Expiry</label>
+            <input name="whiteCardExpiry" type="date" value={form.whiteCardExpiry} onChange={handleChange} />
           </div>
           <div className="form-group">
             <label>Licence Number</label>
