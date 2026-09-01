@@ -16,6 +16,8 @@ interface WorkerData {
     Site: { Id: number; SiteUUID: string; SiteCode?: string; SiteName?: string } | number;
     AccessStatus: string; EndDate: string; StartDate: string;
     SiteInductionComplete: boolean;
+    InductionExpiresAt: string | null;
+    InductionExpired: boolean;
   }>;
   onsite: null | {
     Id: number; Status: string; SignInTime: string;
@@ -311,7 +313,9 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
                     {sa.AccessStatus === "Pending" ? "(Pending) " : ""}
                     {siteName}
                     {sa.AccessStatus !== "Approved" ? ` [${sa.AccessStatus}]` : ""}
-                    {isApproved && sa.SiteInductionComplete && " ✓"}
+                    {isApproved && sa.InductionExpired
+                      ? " — induction expired"
+                      : isApproved && sa.SiteInductionComplete && " ✓"}
                   </button>
                 );
               })

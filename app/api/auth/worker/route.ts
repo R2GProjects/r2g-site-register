@@ -3,6 +3,7 @@ import { TABLES, list } from "@/lib/nocodb";
 import { resolvePersonFromRequest } from "@/lib/person-auth";
 import { createWorkerSession, readWorkerSession, WORKER_COOKIE, WORKER_MAX_AGE } from "@/lib/auth";
 import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
+import { inductionState, inductionValidityDays } from "@/lib/induction";
 
 export async function POST(request: Request) {
   try {
@@ -35,7 +36,8 @@ export async function POST(request: Request) {
 
     const siteAccess = await list<Record<string, unknown>>(TABLES.SiteAccess, {
       where: `(People_id,eq,${person.Id})`,
-      fields: "Id,SiteAccessUUID,Site,AccessStatus,StartDate,EndDate,SiteInductionComplete",
+      fields:
+        "Id,SiteAccessUUID,Site,AccessStatus,StartDate,EndDate,SiteInductionComplete,SiteInductionDate,CreatedAt1",
     });
 
     const activeAttendance = await list<Record<string, unknown>>(TABLES.Attendance, {
@@ -58,16 +60,27 @@ export async function POST(request: Request) {
     if (siteIds.size > 0) {
       const sites = await list<Record<string, unknown>>(TABLES.Sites, {
         where: `(Id,in,${Array.from(siteIds).join(",")})`,
-        fields: "Id,SiteUUID,SiteCode,SiteName,Status,Address,SiteManager",
+        fields:
+          "Id,SiteUUID,SiteCode,SiteName,Status,Address,SiteManager,RequiresInduction",
       });
       for (const s of sites) siteMap.set(s.Id as number, s);
     }
 
+    const validityDays = inductionValidityDays();
     const enrichedAccess = siteAccess.map(sa => {
       const sid = (sa.Site as { Id: number })?.Id;
+      const site = sid ? siteMap.get(sid) : undefined;
+      // Surfaced here so a worker sees a lapsed induction on their dashboard
+      // rather than being turned away at the gate.
+      const induction = inductionState(sa, {
+        requiresInduction: Boolean(site?.RequiresInduction),
+        validityDays,
+      });
       return {
         ...sa,
-        Site: sid ? siteMap.get(sid) || sa.Site : sa.Site,
+        Site: site || sa.Site,
+        InductionExpiresAt: induction.expiresAt,
+        InductionExpired: induction.expired,
       };
     });
 

@@ -26,6 +26,18 @@ Copy `.env.example` to `.env` and fill in:
 - `CRON_SECRET` — shared secret for the scheduled auto-close job. Generate the same way.
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
 - `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
+- `INDUCTION_VALIDITY_DAYS` — optional, default `365`. How long a site induction stays valid before it must be run again.
+
+## Induction expiry
+
+A site induction lapses after `INDUCTION_VALIDITY_DAYS`. Sign-in re-prompts once
+it has, and the worker dashboard flags a lapsed site before they travel.
+
+Access records created before expiry tracking have no induction date. Those are
+aged from when the access was granted rather than being grandfathered forever,
+so they do lapse — but a record with no usable date at all is treated as valid,
+because turning someone away over missing data is the wrong way to fail. Expect
+a wave of re-inductions on older sites after the first deploy.
 
 ## Tests
 

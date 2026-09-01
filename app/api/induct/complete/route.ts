@@ -3,6 +3,7 @@ import { TABLES, list, create, update, findSiteByCode } from "@/lib/nocodb";
 import { nowISO, generateUUID } from "@/lib/auth";
 import { resolvePersonFromRequest } from "@/lib/person-auth";
 import { guard, MINUTE } from "@/lib/rate-limit";
+import { inductionExpiry, inductionValidityDays } from "@/lib/induction";
 
 export async function POST(request: Request) {
   try {
@@ -41,12 +42,14 @@ export async function POST(request: Request) {
     }
 
     const now = nowISO();
+    const expiresAt = inductionExpiry(now, inductionValidityDays());
 
     await create(TABLES.Inductions, {
       InductionUUID: generateUUID(),
       InductionType: "Site",
       InductionVersion: "v1",
       CompletedAt: now,
+      ExpiresAt: expiresAt,
       Accepted: accepted ?? true,
       Status: "Complete",
       Person: person.Id,
@@ -88,6 +91,7 @@ export async function POST(request: Request) {
       Id: person.Id,
       InductionStatus: "Complete",
       InductionDate: now,
+      InductionExpiry: expiresAt,
       UpdatedAt1: now,
     });
 
@@ -96,6 +100,7 @@ export async function POST(request: Request) {
       inductionComplete: true,
       siteName: site.SiteName,
       completedAt: now,
+      expiresAt,
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

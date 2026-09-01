@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth";
 import { resolvePersonFromRequest } from "@/lib/person-auth";
 import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
+import { inductionState, inductionValidityDays } from "@/lib/induction";
 
 function signedInResponse(payload: Record<string, unknown>, personId: number) {
   const resp = NextResponse.json(payload);
@@ -106,10 +107,23 @@ export async function POST(request: Request) {
       }
     }
 
-    // Induction gating: block sign-in if site requires induction and worker hasn't completed it
-    if (site.RequiresInduction && !sa.SiteInductionComplete) {
+    // Induction gating: block sign-in when the site requires an induction the
+    // worker has not done, or has done but let lapse.
+    const induction = inductionState(sa, {
+      requiresInduction: Boolean(site.RequiresInduction),
+      validityDays: inductionValidityDays(),
+    });
+    if (induction.required) {
       return NextResponse.json(
-        { error: "Site induction required before sign-in", inductionRequired: true, siteCode: site.SiteCode as string },
+        {
+          error: induction.expired
+            ? "Site induction has expired and must be completed again"
+            : "Site induction required before sign-in",
+          inductionRequired: true,
+          inductionExpired: induction.expired,
+          inductionExpiredAt: induction.expired ? induction.expiresAt : null,
+          siteCode: site.SiteCode as string,
+        },
         { status: 403 }
       );
     }
