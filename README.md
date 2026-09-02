@@ -98,6 +98,22 @@ page cannot sign in. Sites with no latitude and longitude on file can only be
 signed into via the gate QR. The worker dashboard still lists sites, but
 picking one from the couch is no longer enough.
 
+## Gate kiosk
+
+A shared tablet at the gate uses `/kiosk/<site-code>` rather than the personal
+phone flows. Admin → Sites has a Kiosk button that opens it. The screen is
+bound to that site, hides the Admin link, and returns to a clean home after
+each person — eight seconds after a worker result, twenty after a visitor pass
+QR so there is time to photograph it. A half-filled form is cleared after
+forty-five seconds of no touch.
+
+Sign-in from the kiosk does not set the worker session cookie, and opening the
+kiosk clears any leftover personal login on the tablet, so the next person
+cannot act as the last one. If the site requires an induction, the worker
+completes it on their own phone (scan the site QR) and then signs in here.
+
+Leave kiosk is a small control at the bottom, not a header link.
+
 ## Induction signatures
 
 Completing an induction requires a drawn signature. It is stored with a copy of

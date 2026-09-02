@@ -20,6 +20,7 @@ import { privacyAcceptance } from "@/lib/privacy";
 import { guard, HOUR } from "@/lib/rate-limit";
 import { cardImageCreateFields } from "@/lib/media";
 import { evaluatePresence, gateCookieFromRequest } from "@/lib/presence";
+import { isKioskRequest } from "@/lib/kiosk";
 
 export async function POST(request: Request) {
   try {
@@ -30,8 +31,9 @@ export async function POST(request: Request) {
       licenceNumber, licenceType, licenceExpiry, licenceImage, photo,
       emergencyContactName, emergencyContactPhone,
       acknowledgedSiteRules, fitForWorkConfirmed, passcode, privacyAccepted,
-      lat, lng,
+      lat, lng, kiosk,
     } = await request.json();
+    const kioskMode = isKioskRequest(kiosk);
 
     if (!siteCode || !firstName || !lastName) {
       return NextResponse.json(
@@ -219,13 +221,15 @@ export async function POST(request: Request) {
         recovered: true,
         note: "You were already signed in — we found your existing record.",
       });
-      resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: WORKER_MAX_AGE,
-      });
+      if (!kioskMode) {
+        resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: WORKER_MAX_AGE,
+        });
+      }
       return resp;
     }
 
@@ -266,13 +270,15 @@ export async function POST(request: Request) {
         ? "Welcome back — we matched you to your existing record and signed you in."
         : "Registration complete. You are signed in to site.",
     });
-    resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: WORKER_MAX_AGE,
-    });
+    if (!kioskMode) {
+      resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: WORKER_MAX_AGE,
+      });
+    }
     return resp;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

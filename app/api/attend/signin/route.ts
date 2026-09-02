@@ -21,22 +21,31 @@ import {
   evaluatePresence,
   gateCookieFromRequest,
 } from "@/lib/presence";
+import { isKioskRequest } from "@/lib/kiosk";
 
-function signedInResponse(payload: Record<string, unknown>, personId: number) {
+function signedInResponse(
+  payload: Record<string, unknown>,
+  personId: number,
+  kiosk: boolean
+) {
   const resp = NextResponse.json(payload);
-  resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: WORKER_MAX_AGE,
-  });
+  // A gate tablet must not keep this person's session for the next one.
+  if (!kiosk) {
+    resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: WORKER_MAX_AGE,
+    });
+  }
   return resp;
 }
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed, lat, lng } = await request.json();
+    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed, lat, lng, kiosk } = await request.json();
+    const kioskMode = isKioskRequest(kiosk);
     if (!siteCode) {
       return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
     }
@@ -187,7 +196,8 @@ export async function POST(request: Request) {
             alreadyOnSite: true,
             expiringCredentials: expiring,
           },
-          person.Id
+          person.Id,
+          kioskMode
         );
       }
     }
@@ -240,7 +250,8 @@ export async function POST(request: Request) {
         signedInAt: now,
         expiringCredentials: expiring,
       },
-      person.Id
+      person.Id,
+      kioskMode
     );
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

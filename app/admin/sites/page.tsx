@@ -168,6 +168,7 @@ export default function SitesPage() {
                   <td><span className={statusClass(s.Status as string)}>{s.Status as string}</span></td>
                   <td style={{ display: "flex", gap: 4 }}>
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openReport(s)}>View</button>
+                    <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => window.open(`/kiosk/${encodeURIComponent(String(s.SiteCode || ""))}`, "_blank")}>Kiosk</button>
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openEdit(s)}>Edit</button>
                   </td>
                 </tr>
