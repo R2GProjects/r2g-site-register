@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 import { readDevicePosition } from "@/lib/client-location";
+import { postAttendance } from "@/lib/client-offline";
 import type { CredentialState } from "@/lib/credentials";
 
 interface WorkerData {
@@ -95,32 +96,30 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
       } catch {
         // No GPS — the server will accept a recent scan of the site QR instead.
       }
-      const res = await fetch("/api/attend/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...credentials,
-          siteCode,
-          lat,
-          lng,
-          acknowledgedSiteRules: true,
-          fitForWorkConfirmed: true,
-        }),
+      const result = await postAttendance("signin", {
+        ...credentials,
+        siteCode,
+        lat,
+        lng,
+        acknowledgedSiteRules: true,
+        fitForWorkConfirmed: true,
       });
-      const d = await res.json();
-      if (!res.ok) {
-        if (d.inductionRequired && d.siteCode) {
-          goToInduction(d.siteCode);
+      if (result.status === "queued") {
+        setMessage("No coverage — saved on this phone. It will send when you are back in range. You can walk on.");
+        setMessageIsError(false);
+      } else if (result.status === "error") {
+        if (result.data.inductionRequired && result.data.siteCode) {
+          goToInduction(String(result.data.siteCode));
           return;
         }
-        setMessage(d.error || "Sign in failed");
+        setMessage(result.error || "Sign in failed");
         setMessageIsError(true);
       } else {
         load();
       }
     } catch {
-      setMessage("Network error");
-      setMessageIsError(true);
+      setMessage("No coverage — saved on this phone. It will send when you are back in range. You can walk on.");
+      setMessageIsError(false);
     } finally {
       setActionLoading(false);
     }
@@ -146,21 +145,19 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
     setActionLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/attend/signout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-      const d = await res.json();
-      if (!res.ok) {
-        setMessage(d.error || "Sign out failed");
+      const result = await postAttendance("signout", { ...credentials });
+      if (result.status === "queued") {
+        setMessage("No coverage — sign-out saved on this phone. It will send when you are back in range.");
+        setMessageIsError(false);
+      } else if (result.status === "error") {
+        setMessage(result.error || "Sign out failed");
         setMessageIsError(true);
       } else {
         load();
       }
     } catch {
-      setMessage("Network error");
-      setMessageIsError(true);
+      setMessage("No coverage — sign-out saved on this phone. It will send when you are back in range.");
+      setMessageIsError(false);
     } finally {
       setActionLoading(false);
     }

@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import { readDevicePosition } from "@/lib/client-location";
+import { postAttendance, rememberGateToken } from "@/lib/client-offline";
 import {
   DEFAULT_IDLE_MS,
   DEFAULT_SUCCESS_MS,
@@ -44,7 +45,7 @@ const emptyVisitor = {
 type Panel = "home" | "worker" | "register" | "visitor";
 
 interface Success {
-  kind: "in" | "out" | "visitor" | "already";
+  kind: "in" | "out" | "visitor" | "already" | "queued";
   title: string;
   detail: string;
   passUrl?: string;
@@ -109,7 +110,10 @@ export default function KioskPage() {
       .then((data) => {
         if (cancelled) return;
         if (data.error) setError(data.error);
-        else setSite(data);
+        else {
+          rememberGateToken(data.gateToken);
+          setSite(data);
+        }
       })
       .catch(() => {
         if (!cancelled) setError("Failed to load site");
@@ -185,16 +189,17 @@ export default function KioskPage() {
     setBusy(true);
     try {
       if (action === "out") {
-        const res = await fetch("/api/attend/signout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mobile: number, passcode: code }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
+        const result = await postAttendance("signout", { mobile: number, passcode: code });
+        if (result.status === "queued") {
+          setSuccess({
+            kind: "queued",
+            title: "Saved on this tablet",
+            detail: "Sign-out will send when coverage returns.",
+          });
+        } else if (result.status === "error") {
           setSuccess(null);
           setPanel("worker");
-          setFormError(data.error || "Sign out failed");
+          setFormError(result.error || "Sign out failed");
         } else {
           setSuccess({
             kind: "out",
@@ -206,33 +211,38 @@ export default function KioskPage() {
       }
 
       const pos = await latLng();
-      const res = await fetch("/api/attend/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mobile: number,
-          passcode: code,
-          siteCode,
-          lat: pos.lat,
-          lng: pos.lng,
-          acknowledgedSiteRules: true,
-          fitForWorkConfirmed: true,
-          kiosk: true,
-        }),
+      const result = await postAttendance("signin", {
+        mobile: number,
+        passcode: code,
+        siteCode,
+        lat: pos.lat,
+        lng: pos.lng,
+        acknowledgedSiteRules: true,
+        fitForWorkConfirmed: true,
+        kiosk: true,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.inductionRequired) {
+      if (result.status === "queued") {
+        setSuccess({
+          kind: "queued",
+          title: "Saved on this tablet",
+          detail: "You can walk on. It will send when coverage returns.",
+        });
+        return;
+      }
+      if (result.status === "error") {
+        if (result.data.inductionRequired) {
           setInductionRequired(true);
           setFormError(
-            data.error || "Site induction required before sign-in"
+            result.error || "Site induction required before sign-in"
           );
         } else {
-          setFormError(data.error || "Sign in failed");
+          setFormError(result.error || "Sign in failed");
         }
         return;
       }
-      const name = [data.person?.FirstName, data.person?.LastName]
+      const data = result.data;
+      const person = data.person as { FirstName?: string; LastName?: string } | undefined;
+      const name = [person?.FirstName, person?.LastName]
         .filter(Boolean)
         .join(" ");
       if (data.alreadyOnSite) {
@@ -249,7 +259,11 @@ export default function KioskPage() {
         });
       }
     } catch {
-      setFormError("Network error");
+      setSuccess({
+        kind: "queued",
+        title: "Saved on this tablet",
+        detail: "You can walk on. It will send when coverage returns.",
+      });
     } finally {
       setBusy(false);
     }
@@ -386,10 +400,10 @@ export default function KioskPage() {
         <div className="container" style={{ textAlign: "center", paddingTop: 32 }}>
           <div className="card">
             <span
-              className={`badge ${success.kind === "out" ? "badge-signedout" : "badge-onsite"}`}
+              className={`badge ${success.kind === "out" || success.kind === "queued" ? "badge-signedout" : "badge-onsite"}`}
               style={{ fontSize: "1rem", padding: "8px 16px" }}
             >
-              {success.kind === "out" ? "Signed out" : "On site"}
+              {success.kind === "out" ? "Signed out" : success.kind === "queued" ? "Saved" : "On site"}
             </span>
             <h2 style={{ fontSize: "1.5rem", marginTop: 16 }}>{success.title}</h2>
             <p style={{ color: "var(--muted)", marginTop: 8 }}>{success.detail}</p>

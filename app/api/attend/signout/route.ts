@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, update } from "@/lib/nocodb";
-import { getClientIP, nowISO } from "@/lib/auth";
+import { getClientIP } from "@/lib/auth";
 import { resolvePersonFromRequest } from "@/lib/person-auth";
 import { readWorkerSession } from "@/lib/auth";
 import { guard, MINUTE } from "@/lib/rate-limit";
 import type { Attendance } from "@/lib/types";
+import { isQueuedRequest, resolveQueuedEventTime, resolveSignOutTime } from "@/lib/offline-queue";
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, mobile, passcode } = await request.json();
+    const { accessToken, mobile, passcode, queued, queuedAt } = await request.json();
+    const event = resolveQueuedEventTime(isQueuedRequest(queued) ? queuedAt : undefined);
+    if (!event.ok) {
+      return NextResponse.json({ error: event.error }, { status: 400 });
+    }
 
     const usingSession = !accessToken && !passcode && readWorkerSession(request) !== null;
     if (!usingSession) {
@@ -36,7 +41,7 @@ export async function POST(request: Request) {
 
     const ip = getClientIP(request);
     const ua = request.headers.get("user-agent") || "";
-    const now = nowISO();
+    const now = new Date(resolveSignOutTime(active[0].SignInTime, event.at)).toISOString();
 
     await update(TABLES.Attendance, {
       Id: active[0].Id,

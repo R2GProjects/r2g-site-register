@@ -37,9 +37,18 @@ describe("createGateToken / readGateToken", () => {
     ).toBeNull();
   });
 
-  it("rejects an expired token", () => {
+  it("rejects an expired token against the current clock", () => {
     const token = presence.createGateToken("SITEA", Date.now() - 31 * 60 * 1000);
     expect(presence.readGateToken(token)).toBeNull();
+  });
+
+  it("still reads a token that was valid at the tap, so an offline flush hours later can prove the scan", () => {
+    const tapped = Date.now() - 3 * 60 * 60 * 1000;
+    const token = presence.createGateToken("SITEA", tapped);
+    expect(presence.readGateToken(token, tapped + 5 * 60 * 1000)).toEqual({
+      siteCode: "SITEA",
+    });
+    expect(presence.readGateToken(token, Date.now())).toBeNull();
   });
 
   it.each([null, undefined, "", "not.a.token"])("rejects %p", (value) => {
@@ -125,6 +134,17 @@ describe("evaluatePresence", () => {
         site: SITE,
         gateToken,
       })
+    ).toEqual({ ok: true, method: "SiteQR" });
+  });
+
+  it("judges a stored gate scan at the tap time, not at flush time", () => {
+    const tapped = Date.now() - 3 * 60 * 60 * 1000;
+    const gateToken = presence.createGateToken("A", tapped);
+    expect(
+      presence.evaluatePresence(
+        { siteCode: "A", site: SITE, gateToken },
+        { now: tapped + 60 * 1000 }
+      )
     ).toEqual({ ok: true, method: "SiteQR" });
   });
 });

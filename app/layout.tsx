@@ -1,8 +1,14 @@
 import "./globals.css";
+import OfflineProvider from "@/components/OfflineProvider";
 
 export const metadata = {
   title: "R2G Site Register",
   description: "R2G Projects — Digital Site Attendance Register",
+  appleWebApp: {
+    capable: true,
+    title: "Site Register",
+    statusBarStyle: "black",
+  },
 };
 
 export const viewport = {
@@ -15,7 +21,9 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <OfflineProvider>{children}</OfflineProvider>
+      </body>
     </html>
   );
 }

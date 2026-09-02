@@ -28,8 +28,11 @@ export async function GET(request: Request) {
 
     // Opening this URL is what scanning the gate QR does. The cookie is the
     // proof sign-in accepts when the phone will not (or cannot) share a GPS fix.
-    const resp = NextResponse.json(site);
-    resp.cookies.set(GATE_COOKIE, createGateToken(String(site.SiteCode)), {
+    const gateToken = createGateToken(String(site.SiteCode));
+    // The cookie is httpOnly; the token is also returned so an offline queue
+    // can replay the scan after the cookie has expired.
+    const resp = NextResponse.json({ ...site, gateToken });
+    resp.cookies.set(GATE_COOKIE, gateToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

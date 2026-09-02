@@ -114,6 +114,23 @@ completes it on their own phone (scan the site QR) and then signs in here.
 
 Leave kiosk is a small control at the bottom, not a header link.
 
+## Offline sign-in
+
+A worker in a basement or a lift core who cannot reach the server can still
+tap Sign in. The tap is stored on that phone (or the gate tablet) and sent
+when coverage returns. The time on the record is the tap, not the sync, so a
+7am sign-in that flushes at lunch is still 7am.
+
+GPS or a gate-QR proof is captured at the tap and judged at that moment, so a
+flush from the lunch van does not look like a sign-in from off site. A 4xx
+(wrong passcode, expired card, induction required) is not queued — those will
+not heal themselves. First-time registration still needs a live connection.
+
+The app is installable (Add to Home Screen). The service worker is registered
+in production so a page already opened on the device can load without
+reception. iOS will not flush in the background; opening the app again is
+enough.
+
 ## Induction signatures
 
 Completing an induction requires a drawn signature. It is stored with a copy of

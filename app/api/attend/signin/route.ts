@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { TABLES, list, create, update, findSiteByCode } from "@/lib/nocodb";
 import {
   getClientIP,
-  nowISO,
   generateUUID,
   createWorkerSession,
   readWorkerSession,
@@ -22,6 +21,7 @@ import {
   gateCookieFromRequest,
 } from "@/lib/presence";
 import { isKioskRequest } from "@/lib/kiosk";
+import { isQueuedRequest, resolveQueuedEventTime } from "@/lib/offline-queue";
 
 function signedInResponse(
   payload: Record<string, unknown>,
@@ -44,8 +44,12 @@ function signedInResponse(
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed, lat, lng, kiosk } = await request.json();
+    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed, lat, lng, kiosk, queued, queuedAt, gateToken } = await request.json();
     const kioskMode = isKioskRequest(kiosk);
+    const event = resolveQueuedEventTime(isQueuedRequest(queued) ? queuedAt : undefined);
+    if (!event.ok) {
+      return NextResponse.json({ error: event.error }, { status: 400 });
+    }
     if (!siteCode) {
       return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
     }
@@ -113,7 +117,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Site is not active" }, { status: 400 });
     }
 
-    const now = nowISO();
+    const now = event.iso;
     let access = await list<Record<string, unknown>>(TABLES.SiteAccess, {
       where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})~and(AccessStatus,eq,Approved)`,
       limit: 1,
@@ -202,13 +206,16 @@ export async function POST(request: Request) {
       }
     }
 
-    const presence = evaluatePresence({
-      siteCode,
-      lat,
-      lng,
-      site,
-      gateToken: gateCookieFromRequest(request),
-    });
+    const presence = evaluatePresence(
+      {
+        siteCode,
+        lat,
+        lng,
+        site,
+        gateToken: gateCookieFromRequest(request) || gateToken,
+      },
+      { now: event.at }
+    );
     if (!presence.ok) {
       return NextResponse.json({ error: presence.error }, { status: presence.status });
     }

@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import ImageCapture from "@/components/ImageCapture";
 import { readDevicePosition } from "@/lib/client-location";
+import { postAttendance, rememberGateToken } from "@/lib/client-offline";
 
 interface SiteData {
   SiteUUID: string;
@@ -49,6 +50,7 @@ export default function SitePage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [signInLoading, setSignInLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
+  const [queued, setQueued] = useState(false);
 
   useEffect(() => {
     fetch(`/api/sites?code=${encodeURIComponent(siteCode)}`)
@@ -57,6 +59,7 @@ export default function SitePage() {
         if (data.error) {
           setError(data.error);
         } else {
+          rememberGateToken(data.gateToken);
           setSite(data);
         }
       })
@@ -78,6 +81,7 @@ export default function SitePage() {
       return;
     }
     setSignInError("");
+    setQueued(false);
     setSignInLoading(true);
 
     const dashboard = token ? `/w/${encodeURIComponent(token)}` : "/w";
@@ -91,34 +95,31 @@ export default function SitePage() {
       // The site page fetch already set the gate cookie.
     }
     try {
-      const res = await fetch("/api/attend/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken: token || undefined,
-          mobile: number || undefined,
-          passcode: code || undefined,
-          siteCode,
-          lat,
-          lng,
-          acknowledgedSiteRules: true,
-          fitForWorkConfirmed: true,
-        }),
+      const result = await postAttendance("signin", {
+        accessToken: token || undefined,
+        mobile: number || undefined,
+        passcode: code || undefined,
+        siteCode,
+        lat,
+        lng,
+        acknowledgedSiteRules: true,
+        fitForWorkConfirmed: true,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.inductionRequired && data.siteCode) {
+      if (result.status === "queued") {
+        setQueued(true);
+      } else if (result.status === "error") {
+        if (result.data.inductionRequired && result.data.siteCode) {
           const query = new URLSearchParams({ return: dashboard });
           if (token) query.set("token", token);
-          router.push(`/induct/${data.siteCode}?${query}`);
+          router.push(`/induct/${result.data.siteCode}?${query}`);
           return;
         }
-        setSignInError(data.error || "Sign in failed");
+        setSignInError(result.error || "Sign in failed");
       } else {
         router.push(dashboard);
       }
     } catch {
-      setSignInError("Network error");
+      setQueued(true);
     } finally {
       setSignInLoading(false);
     }
@@ -285,6 +286,11 @@ export default function SitePage() {
                   />
                 </div>
                 {signInError && <div className="error" style={{ marginBottom: 12 }}>{signInError}</div>}
+                {queued && (
+                  <p className="success" style={{ marginBottom: 12 }}>
+                    No coverage — saved on this phone. It will send when you are back in range. You can walk on.
+                  </p>
+                )}
                 <button className="btn btn-primary btn-block" onClick={handleSignIn} disabled={signInLoading}>
                   {signInLoading ? <div className="spinner" /> : "Sign In"}
                 </button>

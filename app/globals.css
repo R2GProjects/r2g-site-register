@@ -297,6 +297,17 @@ th {
   accent-color: var(--accent);
 }
 
+.offline-banner {
+  position: sticky;
+  bottom: 0;
+  background: var(--fg);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 12px 20px;
+  text-align: center;
+}
+
 @media (min-width: 768px) {
   .container { max-width: 540px; }
 }
@@ -305,7 +316,7 @@ th {
   .no-print {
     display: none !important;
   }
-  .header, .admin-nav, .accent-bar {
+  .header, .admin-nav, .accent-bar, .offline-banner {
     display: none !important;
   }
   body {

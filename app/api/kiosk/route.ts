@@ -56,9 +56,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Site is not active" }, { status: 400 });
     }
 
-    const resp = NextResponse.json(site);
+    const gateToken = createGateToken(String(site.SiteCode));
+    const resp = NextResponse.json({ ...site, gateToken });
     // Opening kiosk is being at the gate, the same as scanning the site QR.
-    resp.cookies.set(GATE_COOKIE, createGateToken(String(site.SiteCode)), {
+    resp.cookies.set(GATE_COOKIE, gateToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
