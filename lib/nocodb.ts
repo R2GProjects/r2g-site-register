@@ -311,6 +311,46 @@ export async function attachVisitorDetails<T extends Record<string, unknown>>(
   });
 }
 
+function linkedCompanyId(record: Record<string, unknown>): number | null {
+  return (
+    linkedId(record, "Company", "Companies_id") ??
+    (typeof record.Company === "number" ? numericId(record.Company) : null)
+  );
+}
+
+export async function attachCompanyDetails<T extends Record<string, unknown>>(
+  records: T[]
+): Promise<T[]> {
+  const ids = new Set<number>();
+  for (const record of records) {
+    const id = linkedCompanyId(record);
+    if (id) ids.add(id);
+    const person = record.Person;
+    if (person && typeof person === "object") {
+      const nested = linkedCompanyId(person as Record<string, unknown>);
+      if (nested) ids.add(nested);
+    }
+  }
+  if (ids.size === 0) return records;
+  const companies = await list<Record<string, unknown>>(TABLES.Companies, {
+    where: `(Id,in,${[...ids].join(",")})`,
+    fields: "Id,CompanyName",
+    limit: ids.size,
+  });
+  const map = new Map(companies.map((c) => [c.Id as number, c]));
+  return records.map((record) => {
+    const id = linkedCompanyId(record);
+    let person = record.Person;
+    if (person && typeof person === "object") {
+      const nested = linkedCompanyId(person as Record<string, unknown>);
+      if (nested && map.get(nested)) {
+        person = { ...(person as Record<string, unknown>), Company: map.get(nested) };
+      }
+    }
+    return { ...record, Person: person, Company: (id && map.get(id)) || record.Company };
+  });
+}
+
 export async function create(
   tableId: string,
   record: Record<string, unknown>

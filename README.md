@@ -251,6 +251,22 @@ curl -fsS -X POST https://<host>/api/cron/notify \
 
 Preview with `?dryRun=1`. Same secret and admin-session fallback as auto-close.
 
+## Timesheets
+
+Admin → Timesheets rolls the same hours the daily register uses into a
+per-person and per-company report. Filter by site, company, person and a
+date range (this month is the default). Open shifts are included and
+flagged — close them before using the numbers for pay or invoice.
+
+A visitor who typed a company name is folded into that company when the
+names match, so one contractor is not invoiced twice. Hours sit on the
+site-local day of the sign-in, including an overnight shift.
+
+CSV exports are the current grouping, or every shift as a line so a
+spreadsheet can pivot. Print expands the list. The view is capped at
+2,000 sign-ins, the same as Attendance — narrow the dates on a long
+history.
+
 ## Data retention
 
 The collection notice states that personal details are kept for

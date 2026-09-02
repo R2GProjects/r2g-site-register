@@ -140,7 +140,10 @@ export default function AttendancePage() {
     <div style={{ paddingTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <h2 style={{ margin: 0 }}>Attendance ({total})</h2>
-        <button className="btn btn-secondary" onClick={handleExport}>📥 Export CSV</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a className="btn btn-secondary" href="/admin/timesheets">Timesheets</a>
+          <button className="btn btn-secondary" onClick={handleExport}>📥 Export CSV</button>
+        </div>
       </div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>

@@ -50,6 +50,7 @@ button, .btn {
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
   touch-action: manipulation;
+  text-decoration: none;
 }
 
 button:disabled, .btn:disabled {
@@ -312,7 +313,14 @@ th {
   .container { max-width: 540px; }
 }
 
+.print-only {
+  display: none;
+}
+
 @media print {
+  .print-only {
+    display: block !important;
+  }
   .no-print {
     display: none !important;
   }
