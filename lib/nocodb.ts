@@ -89,6 +89,21 @@ export async function ensureCredentialColumns(): Promise<void> {
 }
 
 /**
+ * A photograph of the person, for the muster point.
+ *
+ * The table already carries a `Photo` column that nothing has ever written, of
+ * a type this code cannot confirm. A phone photo is tens to hundreds of
+ * kilobytes of data URL, so writing it to a single-line or attachment column
+ * would silently drop the one artefact the evacuation list needs. A column
+ * created here is known to be long text.
+ */
+export async function ensurePersonPhotoColumn(): Promise<void> {
+  await ensureColumns("person-photo", TABLES.People, [
+    { title: "PersonPhoto", uidt: "LongText" },
+  ]);
+}
+
+/**
  * The signature image and a copy of the rules it was signed against.
  *
  * The table already carries a `Signature` column that nothing has ever written,
@@ -251,13 +266,14 @@ function linkedId(record: Record<string, unknown>, objectKey: string, idKey: str
 }
 
 export async function attachPersonDetails<T extends Record<string, unknown>>(
-  records: T[]
+  records: T[],
+  fields: string = "Id,FirstName,LastName"
 ): Promise<T[]> {
   const ids = [...new Set(records.map(r => linkedId(r, "Person", "People_id")).filter((id): id is number => id != null))];
   if (ids.length === 0) return records;
   const people = await list<Record<string, unknown>>(TABLES.People, {
     where: `(Id,in,${ids.join(",")})`,
-    fields: "Id,FirstName,LastName",
+    fields,
     limit: ids.length,
   });
   const map = new Map(people.map(p => [p.Id as number, p]));

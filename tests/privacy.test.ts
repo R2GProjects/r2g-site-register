@@ -85,6 +85,10 @@ describe("privacy notice wording", () => {
     );
   });
 
+  it("names a photograph among the things collected", () => {
+    expect(privacyText({ years: 7, contact: "Sam" })).toMatch(/photograph/i);
+  });
+
   it("names the contact in the choices section", () => {
     expect(privacyText({ years: 7, contact: "the office" })).toContain(
       "the office"

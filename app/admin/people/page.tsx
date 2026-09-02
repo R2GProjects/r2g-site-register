@@ -71,6 +71,7 @@ export default function PeoplePage() {
   const defaultForm: Record<string,unknown> = {
     FirstName: "", LastName: "", Mobile: "", Email: "",
     JobRole: "", WorkerType: "Contractor",
+    PersonPhoto: null,
     WhiteCardNumber: "", WhiteCardExpiry: "", WhiteCardImage: null,
     LicenceNumber: "", LicenceType: "", LicenceExpiry: "", LicenceImage: null,
     EmergencyContactName: "", EmergencyContactPhone: "",
@@ -316,6 +317,16 @@ export default function PeoplePage() {
         <Modal title={editItem ? "Edit Person" : "New Person"} onClose={() => setModalOpen(false)}>
           <div className="form-group"><label>First Name *</label><input name="FirstName" value={(form.FirstName as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Last Name *</label><input name="LastName" value={(form.LastName as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group">
+            <ImageCapture
+              label="Photo"
+              hint="A photo of their face, so the muster point can tell who is accounted for."
+              alt="Worker photograph"
+              capture="user"
+              value={(form.PersonPhoto as string) || null}
+              onChange={(dataUrl) => setForm({ ...form, PersonPhoto: dataUrl })}
+            />
+          </div>
           <div className="form-group"><label>Mobile</label><input name="Mobile" type="tel" value={(form.Mobile as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Email</label><input name="Email" type="email" value={(form.Email as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group">

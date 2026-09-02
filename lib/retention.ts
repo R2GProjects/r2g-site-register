@@ -97,6 +97,7 @@ export function personAnonymiseFields(
     LicenceExpiry: null,
     LicenceImage: null,
     Photo: null,
+    PersonPhoto: null,
     Notes: null,
     PasscodeHash: null,
     AccessTokenHash: null,

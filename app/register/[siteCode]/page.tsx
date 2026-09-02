@@ -13,6 +13,7 @@ export default function RegisterWorkerPage() {
   const [form, setForm] = useState({
     firstName: "", lastName: "", mobile: "", email: "",
     companyName: "", workerType: "Contractor", jobRole: "",
+    photo: "",
     whiteCardNumber: "", whiteCardExpiry: "", whiteCardImage: "",
     licenceNumber: "", licenceType: "", licenceImage: "",
     emergencyContactName: "", emergencyContactPhone: "",
@@ -111,6 +112,16 @@ export default function RegisterWorkerPage() {
             <input name="lastName" value={form.lastName} onChange={handleChange} required />
           </div>
           <div className="form-group">
+            <ImageCapture
+              label="Your photo"
+              hint="A photo of your face, so the muster point can tell who is accounted for."
+              alt="Your photograph"
+              capture="user"
+              value={form.photo || null}
+              onChange={(dataUrl) => setForm({ ...form, photo: dataUrl || "" })}
+            />
+          </div>
+          <div className="form-group">
             <label>Mobile</label>
             <input name="mobile" type="tel" value={form.mobile} onChange={handleChange} />
           </div>
@@ -187,4 +198,4 @@ export default function RegisterWorkerPage() {
       </div>
     </div>
   );
-}
+}  

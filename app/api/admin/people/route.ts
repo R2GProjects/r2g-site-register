@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn, ensureCredentialColumns, escapeLikeValue, numericId } from "@/lib/nocodb";
+import { TABLES, list, listPage, create, update, remove, ensurePasscodeColumn, ensureCredentialColumns, ensurePersonPhotoColumn, escapeLikeValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, generateUUID, generateAccessToken, hashToken, hashPasscode, normalizeMobile, validatePasscode } from "@/lib/auth";
 import type { Person } from "@/lib/types";
 import {
@@ -13,7 +13,7 @@ const PEOPLE_LIST_FIELDS =
   "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry";
 
 const PEOPLE_DETAIL_FIELDS =
-  `${PEOPLE_LIST_FIELDS},WhiteCardImage,LicenceImage,EmergencyContactName,EmergencyContactPhone,Notes`;
+  `${PEOPLE_LIST_FIELDS},WhiteCardImage,LicenceImage,PersonPhoto,EmergencyContactName,EmergencyContactPhone,Notes`;
 
 async function passcodeFields(
   passcode: unknown,
@@ -43,10 +43,11 @@ export async function GET(request: Request) {
     await ensureCredentialColumns();
     const warnDays = credentialWarnDays();
 
-    // Card photographs are left out of the list — they are large, and a page
-    // of twenty-five would be megabytes for a table that only shows names.
-    // One record is fetched in full by id when someone opens it.
+    // Card photographs and the face photo are left out of the list — they are
+    // large, and a page of twenty-five would be megabytes for a table that
+    // only shows names. One record is fetched in full by id when someone opens it.
     if (id) {
+      await ensurePersonPhotoColumn();
       const [row] = await list<Person>(TABLES.People, {
         where: `(Id,eq,${id})`,
         limit: 1,
@@ -103,11 +104,12 @@ export async function POST(request: Request) {
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
-    const images = cardImageCreateFields(body.WhiteCardImage, body.LicenceImage);
+    const images = cardImageCreateFields(body.WhiteCardImage, body.LicenceImage, body.PersonPhoto);
     if (images.error) {
       return NextResponse.json({ error: images.error }, { status: 400 });
     }
     await ensureCredentialColumns();
+    if (images.fields.PersonPhoto) await ensurePersonPhotoColumn();
     const now = nowISO();
     const token = generateAccessToken();
     const id = await create(TABLES.People, {
@@ -175,11 +177,13 @@ export async function PATCH(request: Request) {
     ) {
       await ensureCredentialColumns();
     }
+    if ("PersonPhoto" in images.fields) await ensurePersonPhotoColumn();
     const {
       passcode: _passcode,
       credentials: _credentials,
       WhiteCardImage: _whiteCardImage,
       LicenceImage: _licenceImage,
+      PersonPhoto: _personPhoto,
       ...rest
     } = body;
     await update(TABLES.People, {

@@ -76,6 +76,15 @@ missing expiry does not: refusing entry over data nobody has yet supplied is
 the wrong way to fail. A photographed card is evidence a supervisor can look
 at. It is not a check against an issuer register.
 
+## Person photograph
+
+A photograph of the worker can be taken at registration or added in
+Admin → People. It is stored the same way as a card photo, and shown on the
+evacuation list and the on-site screen so a muster point can put a face to a
+name. It is left out of the people list, and the on-site API only includes it
+when that screen asks for it, so a page of names does not pull every photo on
+site. A photo is optional. Missing one does not block sign-in.
+
 ## Induction signatures
 
 Completing an induction requires a drawn signature. It is stored with a copy of

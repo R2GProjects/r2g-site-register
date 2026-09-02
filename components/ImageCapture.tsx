@@ -5,19 +5,30 @@ interface Props {
   value: string | null;
   onChange: (dataUrl: string | null) => void;
   label?: string;
+  hint?: string;
+  alt?: string;
+  /** Front camera for a face; rear camera for a card. */
+  capture?: "user" | "environment";
 }
 
 const MAX_EDGE = 960;
 const JPEG_QUALITY = 0.72;
 
 /**
- * Take or pick a photo of a ticket, compressed on the device.
+ * Take or pick a photo, compressed on the device.
  *
  * Phone cameras produce multi-megabyte JPEGs that would blow the registration
  * request and the LongText column. The image is resized here so what we store
- * is evidence of the card, not an archive of the camera sensor.
+ * is enough to recognise a person or a card, not an archive of the sensor.
  */
-export default function ImageCapture({ value, onChange, label }: Props) {
+export default function ImageCapture({
+  value,
+  onChange,
+  label,
+  hint = "Photograph the card so a number on file is evidence, not just something typed.",
+  alt = "Photograph",
+  capture = "environment",
+}: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState("");
@@ -55,7 +66,7 @@ export default function ImageCapture({ value, onChange, label }: Props) {
       {value ? (
         <img
           src={value}
-          alt="Card photograph"
+          alt={alt}
           style={{
             width: "100%",
             maxHeight: 180,
@@ -68,14 +79,14 @@ export default function ImageCapture({ value, onChange, label }: Props) {
         />
       ) : (
         <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 8 }}>
-          Photograph the card so a number on file is evidence, not just something typed.
+          {hint}
         </p>
       )}
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png"
-        capture="environment"
+        capture={capture}
         style={{ display: "none" }}
         onChange={(e) => onFile(e.target.files?.[0])}
       />

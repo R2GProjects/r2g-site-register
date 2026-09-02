@@ -67,6 +67,7 @@ export interface Person {
   PrivacyVersion: string | null;
   AnonymisedAt: string | null;
   Photo: string | null;
+  PersonPhoto: string | null;
   Notes: string | null;
   Companies_id: number | null;
   Company: { Id: number; CompanyName: string } | number | null;

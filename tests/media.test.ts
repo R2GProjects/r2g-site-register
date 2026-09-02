@@ -85,6 +85,12 @@ describe("cardImageCreateFields", () => {
     });
   });
 
+  it("writes a face photo when one was taken", () => {
+    expect(cardImageCreateFields(null, null, plausible)).toEqual({
+      fields: { PersonPhoto: plausible },
+    });
+  });
+
   it("refuses a bad photo rather than storing it", () => {
     const result = cardImageCreateFields("not-an-image", null);
     expect(result.fields).toEqual({});
@@ -106,6 +112,12 @@ describe("cardImagePatchFields", () => {
   it("stores a valid replacement", () => {
     expect(cardImagePatchFields({ LicenceImage: plausible })).toEqual({
       fields: { LicenceImage: plausible },
+    });
+  });
+
+  it("clears a face photo when the key is sent as null", () => {
+    expect(cardImagePatchFields({ PersonPhoto: null })).toEqual({
+      fields: { PersonPhoto: null },
     });
   });
 });

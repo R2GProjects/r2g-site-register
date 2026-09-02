@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import PersonThumb from "@/components/PersonThumb";
 
 export default function AdminOnSite() {
   const [records, setRecords] = useState<Array<Record<string,unknown>>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/onsite")
+    fetch("/api/admin/onsite?photos=1")
       .then(r => r.json())
       .then(setRecords)
       .catch(console.error)
@@ -38,8 +39,16 @@ export default function AdminOnSite() {
                 <tr key={r.Id as number}>
                   <td><span className="badge badge-active">{r.AttendanceType as string}</span></td>
                   <td>
-                    {r.Person
-                      ? `${(r.Person as { FirstName?: string; LastName?: string })?.FirstName || ""} ${(r.Person as { FirstName?: string; LastName?: string })?.LastName || ""}`
+                    {r.Person ? (() => {
+                      const person = r.Person as { FirstName?: string; LastName?: string; PersonPhoto?: string | null };
+                      const name = `${person.FirstName || ""} ${person.LastName || ""}`.trim();
+                      return (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <PersonThumb src={person.PersonPhoto} name={name} />
+                          {name || "-"}
+                        </span>
+                      );
+                    })()
                       : r.Visitor ? `Visitor #${(r.Visitor as { Id: number })?.Id}` : "-"}
                   </td>
                   <td title={(r.Site as { Address?: string })?.Address || ""}>

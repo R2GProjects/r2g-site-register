@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns, numericId } from "@/lib/nocodb";
+import { TABLES, create, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns, ensurePersonPhotoColumn, numericId } from "@/lib/nocodb";
 import { privacyAcceptance } from "@/lib/privacy";
 import {
   generateAccessToken,
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       siteCode, firstName, lastName, mobile, email,
       companyId, companyName, companyABN,
       workerType, jobRole, whiteCardNumber, whiteCardExpiry, whiteCardImage,
-      licenceNumber, licenceType, licenceExpiry, licenceImage,
+      licenceNumber, licenceType, licenceExpiry, licenceImage, photo,
       emergencyContactName, emergencyContactPhone, passcode, privacyAccepted,
     } = await request.json();
 
@@ -80,13 +80,14 @@ export async function POST(request: Request) {
       passcodeHash = hashPasscode(String(passcode));
     }
 
-    const images = cardImageCreateFields(whiteCardImage, licenceImage);
+    const images = cardImageCreateFields(whiteCardImage, licenceImage, photo);
     if (images.error) {
       return NextResponse.json({ error: images.error }, { status: 400 });
     }
-    if (whiteCardExpiry || licenceExpiry || Object.keys(images.fields).length) {
+    if (whiteCardExpiry || licenceExpiry || images.fields.WhiteCardImage || images.fields.LicenceImage) {
       await ensureCredentialColumns();
     }
+    if (images.fields.PersonPhoto) await ensurePersonPhotoColumn();
 
     const token = generateAccessToken();
     const tokenHash = hashToken(token);

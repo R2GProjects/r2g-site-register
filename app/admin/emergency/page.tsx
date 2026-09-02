@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import PersonThumb from "@/components/PersonThumb";
 
 const REFRESH_MS = 30_000;
 
@@ -8,7 +9,7 @@ interface EmergencySite {
   workerCount: number; visitorCount: number;
   workers: Array<{
     attendance: Record<string,unknown>;
-    person: { Id: number; FirstName: string; LastName: string; EmergencyContactName: string; EmergencyContactPhone: string; WorkerType: string } | null;
+    person: { Id: number; FirstName: string; LastName: string; EmergencyContactName: string; EmergencyContactPhone: string; WorkerType: string; PersonPhoto?: string | null } | null;
   }>;
   visitors: Array<{
     attendance: Record<string,unknown>;
@@ -126,11 +127,22 @@ export default function EmergencyPage() {
               <>
                 <h4 style={{ marginTop: 12, marginBottom: 4 }}>Workers ({site.workerCount})</h4>
                 <table>
-                  <thead><tr><th>Name</th><th>Type</th><th>Emergency Contact</th><th>Phone</th></tr></thead>
+                  <thead><tr><th></th><th>Name</th><th>Type</th><th>Emergency Contact</th><th>Phone</th></tr></thead>
                   <tbody>
-                    {site.workers.map((w, i) => (
-                      <tr key={i}><td>{w.person?.FirstName} {w.person?.LastName}</td><td>{w.person?.WorkerType || "-"}</td><td>{w.person?.EmergencyContactName || "-"}</td><td>{w.person?.EmergencyContactPhone || "-"}</td></tr>
-                    ))}
+                    {site.workers.map((w, i) => {
+                      const name = `${w.person?.FirstName || ""} ${w.person?.LastName || ""}`.trim();
+                      return (
+                        <tr key={i}>
+                          <td>
+                            <PersonThumb src={w.person?.PersonPhoto} name={name} />
+                          </td>
+                          <td>{name || "—"}</td>
+                          <td>{w.person?.WorkerType || "-"}</td>
+                          <td>{w.person?.EmergencyContactName || "-"}</td>
+                          <td>{w.person?.EmergencyContactPhone || "-"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </>

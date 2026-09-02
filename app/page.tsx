@@ -8,6 +8,7 @@ import ImageCapture from "@/components/ImageCapture";
 const emptyRegForm = {
   firstName: "", lastName: "", mobile: "", email: "",
   companyName: "", workerType: "Contractor", jobRole: "",
+  photo: "" as string,
   whiteCardNumber: "", whiteCardExpiry: "", whiteCardImage: "" as string,
   licenceNumber: "", licenceType: "", licenceImage: "" as string,
   emergencyContactName: "", emergencyContactPhone: "",
@@ -316,6 +317,16 @@ export default function HomePage() {
                     <div className="form-group">
                       <label>Last Name *</label>
                       <input name="lastName" value={regForm.lastName} onChange={handleRegChange} required />
+                    </div>
+                    <div className="form-group">
+                      <ImageCapture
+                        label="Your photo"
+                        hint="A photo of your face, so the muster point can tell who is accounted for."
+                        alt="Your photograph"
+                        capture="user"
+                        value={regForm.photo || null}
+                        onChange={(dataUrl) => setRegForm({ ...regForm, photo: dataUrl || "" })}
+                      />
                     </div>
                     <div className="form-group">
                       <label>Mobile</label>

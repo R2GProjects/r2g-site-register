@@ -46,7 +46,7 @@ export function privacySections(
   return [
     {
       heading: "What we collect",
-      body: "Your name and contact details, the company you work for, your work role, the ticket and licence numbers you give us, your emergency contact, and a record of each time you sign in to and out of a site. Sign-ins also record the time, the site, and the network address of the device used.",
+      body: "Your name, a photograph of you, your contact details, the company you work for, your work role, the ticket and licence numbers and card photographs you give us, your emergency contact, and a record of each time you sign in to and out of a site. Sign-ins also record the time, the site, and the network address of the device used.",
     },
     {
       heading: "Why we collect it",
@@ -54,7 +54,7 @@ export function privacySections(
     },
     {
       heading: "Who can see it",
-      body: "Site managers and administrators of this register. Your name and contact number appear on the evacuation list used at a muster point. We do not sell your information or use it for marketing.",
+      body: "Site managers and administrators of this register. Your name, photograph and contact number appear on the evacuation list used at a muster point. We do not sell your information or use it for marketing.",
     },
     {
       heading: "How long we keep it",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, attachSiteDetails, numericId } from "@/lib/nocodb";
+import { TABLES, list, attachSiteDetails, attachPersonDetails, numericId, ensurePersonPhotoColumn } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 import type { Attendance } from "@/lib/types";
 
@@ -21,7 +21,14 @@ export async function GET(request: Request) {
       limit: 200,
     });
 
-    return NextResponse.json(await attachSiteDetails(records as unknown as Record<string, unknown>[]));
+    const withSites = await attachSiteDetails(records as unknown as Record<string, unknown>[]);
+    if (searchParams.get("photos") === "1") {
+      await ensurePersonPhotoColumn();
+      return NextResponse.json(
+        await attachPersonDetails(withSites, "Id,FirstName,LastName,PersonPhoto")
+      );
+    }
+    return NextResponse.json(withSites);
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

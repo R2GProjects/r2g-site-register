@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns } from "@/lib/nocodb";
+import { TABLES, create, list, update, findSiteByCode, ensurePasscodeColumn, ensureCredentialColumns, ensurePrivacyColumns, ensurePersonPhotoColumn } from "@/lib/nocodb";
 import {
   generateAccessToken,
   hashToken,
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       siteCode, firstName, lastName, mobile, email,
       companyName, companyABN,
       workerType, jobRole, whiteCardNumber, whiteCardExpiry, whiteCardImage,
-      licenceNumber, licenceType, licenceExpiry, licenceImage,
+      licenceNumber, licenceType, licenceExpiry, licenceImage, photo,
       emergencyContactName, emergencyContactPhone,
       acknowledgedSiteRules, fitForWorkConfirmed, passcode, privacyAccepted,
     } = await request.json();
@@ -123,13 +123,14 @@ export async function POST(request: Request) {
         UpdatedAt1: now,
       });
     } else {
-      const images = cardImageCreateFields(whiteCardImage, licenceImage);
+      const images = cardImageCreateFields(whiteCardImage, licenceImage, photo);
       if (images.error) {
         return NextResponse.json({ error: images.error }, { status: 400 });
       }
-      if (whiteCardExpiry || licenceExpiry || Object.keys(images.fields).length) {
+      if (whiteCardExpiry || licenceExpiry || images.fields.WhiteCardImage || images.fields.LicenceImage) {
         await ensureCredentialColumns();
       }
+      if (images.fields.PersonPhoto) await ensurePersonPhotoColumn();
       companyRowId = await resolveOrCreateCompany(companyName, companyABN);
       token = generateAccessToken();
       personUUID = generateUUID();

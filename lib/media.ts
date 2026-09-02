@@ -29,7 +29,7 @@ export function acceptedCardImage(
     return {
       image: null,
       error:
-        "That card photo could not be stored. Take it again as a JPEG or PNG, and keep it under a few hundred kilobytes.",
+        "That photo could not be stored. Take it again as a JPEG or PNG, and keep it under a few hundred kilobytes.",
     };
   }
   return { image: String(value).trim() };
@@ -41,15 +41,19 @@ export function acceptedCardImage(
  */
 export function cardImageCreateFields(
   whiteCardImage: unknown,
-  licenceImage: unknown
+  licenceImage: unknown,
+  photo?: unknown
 ): { fields: Record<string, unknown>; error?: string } {
   const white = acceptedCardImage(whiteCardImage);
   if (white.error) return { fields: {}, error: white.error };
   const licence = acceptedCardImage(licenceImage);
   if (licence.error) return { fields: {}, error: licence.error };
+  const face = acceptedCardImage(photo);
+  if (face.error) return { fields: {}, error: face.error };
   const fields: Record<string, unknown> = {};
   if (white.image) fields.WhiteCardImage = white.image;
   if (licence.image) fields.LicenceImage = licence.image;
+  if (face.image) fields.PersonPhoto = face.image;
   return { fields };
 }
 
@@ -71,6 +75,11 @@ export function cardImagePatchFields(body: Record<string, unknown>): {
     const licence = acceptedCardImage(body.LicenceImage);
     if (licence.error) return { fields: {}, error: licence.error };
     fields.LicenceImage = licence.image;
+  }
+  if ("PersonPhoto" in body) {
+    const face = acceptedCardImage(body.PersonPhoto);
+    if (face.error) return { fields: {}, error: face.error };
+    fields.PersonPhoto = face.image;
   }
   return { fields };
 }

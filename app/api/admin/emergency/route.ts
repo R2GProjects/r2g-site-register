@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, list, numericId } from "@/lib/nocodb";
+import { TABLES, list, numericId, ensurePersonPhotoColumn } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
 import {
   buildEvacuationRoll,
@@ -12,7 +12,7 @@ const SITE_FIELDS =
   "Id,SiteUUID,SiteName,SiteCode,SiteManager,SiteManagerPhone,Address";
 
 const PERSON_FIELDS =
-  "Id,FirstName,LastName,EmergencyContactName,EmergencyContactPhone,WorkerType,Mobile,Company";
+  "Id,FirstName,LastName,EmergencyContactName,EmergencyContactPhone,WorkerType,Mobile,Company,PersonPhoto";
 
 const VISITOR_FIELDS =
   "Id,FirstName,LastName,EmergencyContactName,EmergencyContactPhone,CompanyName,ReasonForVisit,Mobile";
@@ -86,7 +86,10 @@ export async function GET(request: Request) {
     ];
 
     const [peopleById, visitorsById] = await Promise.all([
-      listByIds(TABLES.People, personIds, PERSON_FIELDS),
+      (async () => {
+        await ensurePersonPhotoColumn();
+        return listByIds(TABLES.People, personIds, PERSON_FIELDS);
+      })(),
       listByIds(TABLES.Visitors, visitorIds, VISITOR_FIELDS),
     ]);
 
