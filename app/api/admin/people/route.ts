@@ -7,6 +7,13 @@ import {
   evaluateCredentials,
   type CredentialSource,
 } from "@/lib/credentials";
+import { cardImageCreateFields, cardImagePatchFields } from "@/lib/media";
+
+const PEOPLE_LIST_FIELDS =
+  "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry";
+
+const PEOPLE_DETAIL_FIELDS =
+  `${PEOPLE_LIST_FIELDS},WhiteCardImage,LicenceImage,EmergencyContactName,EmergencyContactPhone,Notes`;
 
 async function passcodeFields(
   passcode: unknown,
@@ -31,6 +38,29 @@ export async function GET(request: Request) {
   }
   try {
     const { searchParams } = new URL(request.url);
+    const id = numericId(searchParams.get("id"));
+
+    await ensureCredentialColumns();
+    const warnDays = credentialWarnDays();
+
+    // Card photographs are left out of the list — they are large, and a page
+    // of twenty-five would be megabytes for a table that only shows names.
+    // One record is fetched in full by id when someone opens it.
+    if (id) {
+      const [row] = await list<Person>(TABLES.People, {
+        where: `(Id,eq,${id})`,
+        limit: 1,
+        fields: PEOPLE_DETAIL_FIELDS,
+      });
+      if (!row) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json({
+        ...row,
+        credentials: evaluateCredentials(row as CredentialSource, { warnDays }),
+      });
+    }
+
     const q = searchParams.get("q");
     const page = parseInt(searchParams.get("page") || "0");
     const limit = parseInt(searchParams.get("limit") || "25");
@@ -42,19 +72,16 @@ export async function GET(request: Request) {
       where = `(FirstName,like,%${term}%)~or(LastName,like,%${term}%)`;
     }
 
-    await ensureCredentialColumns();
     const result = await listPage<Person>(TABLES.People, {
       where,
       limit,
       offset,
       sort: "-UpdatedAt1",
-      fields:
-        "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry",
+      fields: PEOPLE_LIST_FIELDS,
     });
 
     // Evaluated server-side so the list and the gate cannot disagree about
     // whose tickets have lapsed.
-    const warnDays = credentialWarnDays();
     const withCredentials = result.list.map((p) => ({
       ...p,
       credentials: evaluateCredentials(p as CredentialSource, { warnDays }),
@@ -76,6 +103,10 @@ export async function POST(request: Request) {
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
+    const images = cardImageCreateFields(body.WhiteCardImage, body.LicenceImage);
+    if (images.error) {
+      return NextResponse.json({ error: images.error }, { status: 400 });
+    }
     await ensureCredentialColumns();
     const now = nowISO();
     const token = generateAccessToken();
@@ -93,6 +124,7 @@ export async function POST(request: Request) {
       LicenceNumber: body.LicenceNumber || null,
       LicenceType: body.LicenceType || null,
       LicenceExpiry: body.LicenceExpiry || null,
+      ...images.fields,
       EmergencyContactName: body.EmergencyContactName || null,
       EmergencyContactPhone: body.EmergencyContactPhone || null,
       AccessTokenHash: hashToken(token),
@@ -132,12 +164,27 @@ export async function PATCH(request: Request) {
     if (hashed.error) {
       return NextResponse.json({ error: hashed.error }, { status: 400 });
     }
-    if ("WhiteCardExpiry" in body || "LicenceExpiry" in body) {
+    const images = cardImagePatchFields(body);
+    if (images.error) {
+      return NextResponse.json({ error: images.error }, { status: 400 });
+    }
+    if (
+      "WhiteCardExpiry" in body ||
+      "LicenceExpiry" in body ||
+      Object.keys(images.fields).length
+    ) {
       await ensureCredentialColumns();
     }
-    const { passcode: _passcode, credentials: _credentials, ...rest } = body;
+    const {
+      passcode: _passcode,
+      credentials: _credentials,
+      WhiteCardImage: _whiteCardImage,
+      LicenceImage: _licenceImage,
+      ...rest
+    } = body;
     await update(TABLES.People, {
       ...rest,
+      ...images.fields,
       ...(hashed.PasscodeHash ? { PasscodeHash: hashed.PasscodeHash } : {}),
       UpdatedAt1: nowISO(),
     });

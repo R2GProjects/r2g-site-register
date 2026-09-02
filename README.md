@@ -65,6 +65,17 @@ expiring, on the worker dashboard and in the admin list.
 The two expiry columns are created in NocoDB on first use, so no manual schema
 change is needed.
 
+A photograph of the card can be taken at registration or added later in
+Admin → People. It is stored as a compressed JPEG so a phone camera dump cannot
+blow the request, and the server checks the media type, base64 alphabet and
+size rather than trusting the client — the same checks that keep an SVG
+carrying script out of the signature field. Photos are left out of the people
+list so a page of names does not pull megabytes; opening a person loads them.
+A photo is optional. Missing one does not block sign-in, for the same reason a
+missing expiry does not: refusing entry over data nobody has yet supplied is
+the wrong way to fail. A photographed card is evidence a supervisor can look
+at. It is not a check against an issuer register.
+
 ## Induction signatures
 
 Completing an induction requires a drawn signature. It is stored with a copy of

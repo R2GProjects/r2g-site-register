@@ -120,6 +120,8 @@ describe("anonymise field sets", () => {
     expect(fields.PasscodeHash).toBeNull();
     expect(fields.AccessTokenHash).toBeNull();
     expect(fields.Photo).toBeNull();
+    expect(fields.WhiteCardImage).toBeNull();
+    expect(fields.LicenceImage).toBeNull();
     expect(fields.AccessEnabled).toBe(false);
     expect(fields.AnonymisedAt).toBe(now);
   });

@@ -74,11 +74,17 @@ export async function ensurePasscodeColumn(): Promise<void> {
   ]);
 }
 
-/** Expiry dates for the tickets a worker needs to be on site. */
+/** Expiry dates and photographs for the tickets a worker needs to be on site. */
 export async function ensureCredentialColumns(): Promise<void> {
   await ensureColumns("credentials", TABLES.People, [
     { title: "WhiteCardExpiry", uidt: "Date" },
     { title: "LicenceExpiry", uidt: "Date" },
+  ]);
+  // A separate cache key so a process that already created the date columns
+  // still adds the image columns without waiting for a restart.
+  await ensureColumns("credential-images", TABLES.People, [
+    { title: "WhiteCardImage", uidt: "LongText" },
+    { title: "LicenceImage", uidt: "LongText" },
   ]);
 }
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
+import ImageCapture from "@/components/ImageCapture";
 
 export default function RegisterWorkerPage() {
   const params = useParams();
@@ -12,8 +13,8 @@ export default function RegisterWorkerPage() {
   const [form, setForm] = useState({
     firstName: "", lastName: "", mobile: "", email: "",
     companyName: "", workerType: "Contractor", jobRole: "",
-    whiteCardNumber: "", whiteCardExpiry: "",
-    licenceNumber: "", licenceType: "",
+    whiteCardNumber: "", whiteCardExpiry: "", whiteCardImage: "",
+    licenceNumber: "", licenceType: "", licenceImage: "",
     emergencyContactName: "", emergencyContactPhone: "",
   });
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -141,12 +142,26 @@ export default function RegisterWorkerPage() {
             <input name="whiteCardExpiry" type="date" value={form.whiteCardExpiry} onChange={handleChange} />
           </div>
           <div className="form-group">
+            <ImageCapture
+              label="White Card Photo"
+              value={form.whiteCardImage || null}
+              onChange={(dataUrl) => setForm({ ...form, whiteCardImage: dataUrl || "" })}
+            />
+          </div>
+          <div className="form-group">
             <label>Licence Number</label>
             <input name="licenceNumber" value={form.licenceNumber} onChange={handleChange} />
           </div>
           <div className="form-group">
             <label>Licence Type</label>
             <input name="licenceType" value={form.licenceType} onChange={handleChange} placeholder="e.g. Electrical, Plumbing" />
+          </div>
+          <div className="form-group">
+            <ImageCapture
+              label="Licence Photo"
+              value={form.licenceImage || null}
+              onChange={(dataUrl) => setForm({ ...form, licenceImage: dataUrl || "" })}
+            />
           </div>
           <div className="form-group">
             <label>Emergency Contact Name</label>

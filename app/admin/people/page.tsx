@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
+import ImageCapture from "@/components/ImageCapture";
 import type { CredentialState } from "@/lib/credentials";
 
 /** A date input only accepts YYYY-MM-DD, but the stored value may carry a time. */
@@ -70,8 +71,8 @@ export default function PeoplePage() {
   const defaultForm: Record<string,unknown> = {
     FirstName: "", LastName: "", Mobile: "", Email: "",
     JobRole: "", WorkerType: "Contractor",
-    WhiteCardNumber: "", WhiteCardExpiry: "",
-    LicenceNumber: "", LicenceType: "", LicenceExpiry: "",
+    WhiteCardNumber: "", WhiteCardExpiry: "", WhiteCardImage: null,
+    LicenceNumber: "", LicenceType: "", LicenceExpiry: "", LicenceImage: null,
     EmergencyContactName: "", EmergencyContactPhone: "",
     AccessEnabled: true, Notes: "", passcode: "",
   };
@@ -115,6 +116,17 @@ export default function PeoplePage() {
     setForm({ ...item, passcode: "" });
     setFormError("");
     setModalOpen(true);
+    fetch(`/api/admin/people?id=${item.Id}`)
+      .then((r) => r.json())
+      .then((detail: Record<string, unknown>) => {
+        if (!detail || detail.error || detail.Id !== item.Id) return;
+        setForm((current) => ({
+          ...current,
+          ...detail,
+          passcode: "",
+        }));
+      })
+      .catch(() => undefined);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -321,9 +333,23 @@ export default function PeoplePage() {
               Once set, sign-in is blocked from the day after this date.
             </span>
           </div>
+          <div className="form-group">
+            <ImageCapture
+              label="White Card Photo"
+              value={(form.WhiteCardImage as string) || null}
+              onChange={(dataUrl) => setForm({ ...form, WhiteCardImage: dataUrl })}
+            />
+          </div>
           <div className="form-group"><label>Licence Number</label><input name="LicenceNumber" value={(form.LicenceNumber as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Licence Type</label><input name="LicenceType" value={(form.LicenceType as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Licence Expiry</label><input name="LicenceExpiry" type="date" value={dateValue(form.LicenceExpiry)} onChange={handleFormChange} /></div>
+          <div className="form-group">
+            <ImageCapture
+              label="Licence Photo"
+              value={(form.LicenceImage as string) || null}
+              onChange={(dataUrl) => setForm({ ...form, LicenceImage: dataUrl })}
+            />
+          </div>
           <div className="form-group"><label>Emergency Contact Name</label><input name="EmergencyContactName" value={(form.EmergencyContactName as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Emergency Contact Phone</label><input name="EmergencyContactPhone" value={(form.EmergencyContactPhone as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label className="checkbox-label"><input type="checkbox" name="AccessEnabled" checked={(form.AccessEnabled as boolean) || false} onChange={handleFormChange} />Access Enabled</label></div>

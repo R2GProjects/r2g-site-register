@@ -3,12 +3,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
+import ImageCapture from "@/components/ImageCapture";
 
 const emptyRegForm = {
   firstName: "", lastName: "", mobile: "", email: "",
   companyName: "", workerType: "Contractor", jobRole: "",
-  whiteCardNumber: "", whiteCardExpiry: "",
-  licenceNumber: "", licenceType: "",
+  whiteCardNumber: "", whiteCardExpiry: "", whiteCardImage: "" as string,
+  licenceNumber: "", licenceType: "", licenceImage: "" as string,
   emergencyContactName: "", emergencyContactPhone: "",
   siteCode: "", passcode: "",
 };
@@ -348,12 +349,26 @@ export default function HomePage() {
                       <input name="whiteCardExpiry" type="date" value={regForm.whiteCardExpiry} onChange={handleRegChange} />
                     </div>
                     <div className="form-group">
+                      <ImageCapture
+                        label="White Card Photo"
+                        value={regForm.whiteCardImage || null}
+                        onChange={(dataUrl) => setRegForm({ ...regForm, whiteCardImage: dataUrl || "" })}
+                      />
+                    </div>
+                    <div className="form-group">
                       <label>Licence Number</label>
                       <input name="licenceNumber" value={regForm.licenceNumber} onChange={handleRegChange} />
                     </div>
                     <div className="form-group">
                       <label>Licence Type</label>
                       <input name="licenceType" value={regForm.licenceType} onChange={handleRegChange} placeholder="e.g. Electrical, Plumbing" />
+                    </div>
+                    <div className="form-group">
+                      <ImageCapture
+                        label="Licence Photo"
+                        value={regForm.licenceImage || null}
+                        onChange={(dataUrl) => setRegForm({ ...regForm, licenceImage: dataUrl || "" })}
+                      />
                     </div>
                     <div className="form-group">
                       <label>Emergency Contact Name</label>

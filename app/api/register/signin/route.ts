@@ -18,14 +18,15 @@ import { resolveOrCreateCompany } from "@/lib/company";
 import { findDuplicatePerson } from "@/lib/person-auth";
 import { privacyAcceptance } from "@/lib/privacy";
 import { guard, HOUR } from "@/lib/rate-limit";
+import { cardImageCreateFields } from "@/lib/media";
 
 export async function POST(request: Request) {
   try {
     const {
       siteCode, firstName, lastName, mobile, email,
       companyName, companyABN,
-      workerType, jobRole, whiteCardNumber, whiteCardExpiry,
-      licenceNumber, licenceType, licenceExpiry,
+      workerType, jobRole, whiteCardNumber, whiteCardExpiry, whiteCardImage,
+      licenceNumber, licenceType, licenceExpiry, licenceImage,
       emergencyContactName, emergencyContactPhone,
       acknowledgedSiteRules, fitForWorkConfirmed, passcode, privacyAccepted,
     } = await request.json();
@@ -122,7 +123,13 @@ export async function POST(request: Request) {
         UpdatedAt1: now,
       });
     } else {
-      if (whiteCardExpiry || licenceExpiry) await ensureCredentialColumns();
+      const images = cardImageCreateFields(whiteCardImage, licenceImage);
+      if (images.error) {
+        return NextResponse.json({ error: images.error }, { status: 400 });
+      }
+      if (whiteCardExpiry || licenceExpiry || Object.keys(images.fields).length) {
+        await ensureCredentialColumns();
+      }
       companyRowId = await resolveOrCreateCompany(companyName, companyABN);
       token = generateAccessToken();
       personUUID = generateUUID();
@@ -142,6 +149,7 @@ export async function POST(request: Request) {
         LicenceNumber: licenceNumber || null,
         LicenceType: licenceType || null,
         LicenceExpiry: licenceExpiry || null,
+        ...images.fields,
         EmergencyContactName: emergencyContactName || null,
         EmergencyContactPhone: emergencyContactPhone || null,
         AccessTokenHash: hashToken(token),
