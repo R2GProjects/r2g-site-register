@@ -17,6 +17,10 @@ import {
   blockingCredentials,
   evaluateCredentials,
 } from "@/lib/credentials";
+import {
+  evaluatePresence,
+  gateCookieFromRequest,
+} from "@/lib/presence";
 
 function signedInResponse(payload: Record<string, unknown>, personId: number) {
   const resp = NextResponse.json(payload);
@@ -32,7 +36,7 @@ function signedInResponse(payload: Record<string, unknown>, personId: number) {
 
 export async function POST(request: Request) {
   try {
-    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed } = await request.json();
+    const { accessToken, mobile, passcode, siteCode, workActivity, acknowledgedSiteRules, fitForWorkConfirmed, lat, lng } = await request.json();
     if (!siteCode) {
       return NextResponse.json({ error: "Missing siteCode" }, { status: 400 });
     }
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
 
     const site = await findSiteByCode(
       siteCode,
-      "Id,SiteUUID,SiteName,SiteCode,Status,RequiresInduction"
+      "Id,SiteUUID,SiteName,SiteCode,Status,RequiresInduction,Latitude,Longitude"
     );
     if (!site) {
       return NextResponse.json({ error: "Site not found" }, { status: 404 });
@@ -186,6 +190,20 @@ export async function POST(request: Request) {
           person.Id
         );
       }
+    }
+
+    const presence = evaluatePresence({
+      siteCode,
+      lat,
+      lng,
+      site,
+      gateToken: gateCookieFromRequest(request),
+    });
+    if (!presence.ok) {
+      return NextResponse.json({ error: presence.error }, { status: presence.status });
+    }
+
+    if (existing[0]) {
       await update(TABLES.Attendance, {
         Id: existing[0].Id as number,
         SignOutTime: now,
@@ -203,7 +221,7 @@ export async function POST(request: Request) {
       Company: person.Companies_id ?? null,
       AttendanceType: person.WorkerType || "Contractor",
       SignInTime: now,
-      SignInMethod: "PersonalQR",
+      SignInMethod: presence.method,
       WorkActivity: workActivity || null,
       AcknowledgedSiteRules: acknowledgedSiteRules || false,
       FitForWorkConfirmed: fitForWorkConfirmed || false,

@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import ImageCapture from "@/components/ImageCapture";
+import { readDevicePosition } from "@/lib/client-location";
 
 interface SiteData {
   SiteUUID: string;
@@ -80,6 +81,15 @@ export default function SitePage() {
     setSignInLoading(true);
 
     const dashboard = token ? `/w/${encodeURIComponent(token)}` : "/w";
+    let lat: number | undefined;
+    let lng: number | undefined;
+    try {
+      const pos = await readDevicePosition();
+      lat = pos.lat;
+      lng = pos.lng;
+    } catch {
+      // The site page fetch already set the gate cookie.
+    }
     try {
       const res = await fetch("/api/attend/signin", {
         method: "POST",
@@ -89,6 +99,8 @@ export default function SitePage() {
           mobile: number || undefined,
           passcode: code || undefined,
           siteCode,
+          lat,
+          lng,
           acknowledgedSiteRules: true,
           fitForWorkConfirmed: true,
         }),
@@ -128,6 +140,15 @@ export default function SitePage() {
     }
     setRegError("");
     setRegLoading(true);
+    let lat: number | undefined;
+    let lng: number | undefined;
+    try {
+      const pos = await readDevicePosition();
+      lat = pos.lat;
+      lng = pos.lng;
+    } catch {
+      // Opening this page set the gate cookie, which is enough without GPS.
+    }
     try {
       const res = await fetch("/api/register/signin", {
         method: "POST",
@@ -135,6 +156,8 @@ export default function SitePage() {
         body: JSON.stringify({
           siteCode,
           ...regForm,
+          lat,
+          lng,
           acknowledgedSiteRules: true,
           fitForWorkConfirmed: true,
           privacyAccepted,

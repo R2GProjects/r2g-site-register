@@ -1,28 +1,15 @@
 import { NextResponse } from "next/server";
 import { TABLES, list } from "@/lib/nocodb";
-
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import { metresBetween, parseLatitude, parseLongitude } from "@/lib/geofence";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const lat = parseFloat(searchParams.get("lat") || "");
-    const lng = parseFloat(searchParams.get("lng") || "");
+    const lat = parseLatitude(searchParams.get("lat"));
+    const lng = parseLongitude(searchParams.get("lng"));
     const radiusM = parseInt(searchParams.get("radius") || "500");
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (lat === null || lng === null) {
       return NextResponse.json({ error: "lat and lng query parameters required" }, { status: 400 });
     }
 
@@ -34,11 +21,10 @@ export async function GET(request: Request) {
 
     const nearby = sites
       .map((site) => {
-        const siteLat = site.Latitude as number | null;
-        const siteLng = site.Longitude as number | null;
-        if (siteLat == null || siteLng == null) return null;
-        const distKm = haversine(lat, lng, siteLat, siteLng);
-        const distM = Math.round(distKm * 1000);
+        const siteLat = parseLatitude(site.Latitude);
+        const siteLng = parseLongitude(site.Longitude);
+        if (siteLat === null || siteLng === null) return null;
+        const distM = Math.round(metresBetween(lat, lng, siteLat, siteLng));
         if (distM > radiusM) return null;
         return { ...site, distanceM: distM };
       })

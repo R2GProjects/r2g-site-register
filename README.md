@@ -29,6 +29,7 @@ Copy `.env.example` to `.env` and fill in:
 - `INDUCTION_VALIDITY_DAYS` — optional, default `365`. How long a site induction stays valid before it must be run again.
 - `DATA_RETENTION_YEARS` — optional, default `7`. Stated in the collection notice; changing it changes the notice version.
 - `PRIVACY_CONTACT` — optional. Named in the notice as who to ask about personal information.
+- `GEOFENCE_RADIUS_METRES` — optional, default `300`. How far from the site pin a GPS sign-in still counts. Fifty to 2000 metres.
 
 ## Induction expiry
 
@@ -84,6 +85,18 @@ evacuation list and the on-site screen so a muster point can put a face to a
 name. It is left out of the people list, and the on-site API only includes it
 when that screen asks for it, so a page of names does not pull every photo on
 site. A photo is optional. Missing one does not block sign-in.
+
+## Sign-in presence
+
+Signing in to a site requires evidence of being there. A GPS reading inside
+`GEOFENCE_RADIUS_METRES` of the site pin (default 300 m) is recorded as
+`Geofence`. Opening the site page — the URL the gate QR points at — sets a
+short-lived cookie and is recorded as `SiteQR`, which is the fallback when the
+phone will not share a location. A GPS reading outside the fence is refused
+even if that cookie is present, so a phone at home that once opened the site
+page cannot sign in. Sites with no latitude and longitude on file can only be
+signed into via the gate QR. The worker dashboard still lists sites, but
+picking one from the couch is no longer enough.
 
 ## Induction signatures
 

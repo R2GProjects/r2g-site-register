@@ -19,6 +19,7 @@ import { findDuplicatePerson } from "@/lib/person-auth";
 import { privacyAcceptance } from "@/lib/privacy";
 import { guard, HOUR } from "@/lib/rate-limit";
 import { cardImageCreateFields } from "@/lib/media";
+import { evaluatePresence, gateCookieFromRequest } from "@/lib/presence";
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       licenceNumber, licenceType, licenceExpiry, licenceImage, photo,
       emergencyContactName, emergencyContactPhone,
       acknowledgedSiteRules, fitForWorkConfirmed, passcode, privacyAccepted,
+      lat, lng,
     } = await request.json();
 
     if (!siteCode || !firstName || !lastName) {
@@ -54,13 +56,24 @@ export async function POST(request: Request) {
 
     const site = await findSiteByCode(
       siteCode,
-      "Id,SiteUUID,SiteName,SiteCode,Status,RequiresInduction"
+      "Id,SiteUUID,SiteName,SiteCode,Status,RequiresInduction,Latitude,Longitude"
     );
     if (!site) {
       return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
     if (site.Status !== "Active" && site.Status !== "Setup") {
       return NextResponse.json({ error: "Site is not active" }, { status: 400 });
+    }
+
+    const presence = evaluatePresence({
+      siteCode,
+      lat,
+      lng,
+      site,
+      gateToken: gateCookieFromRequest(request),
+    });
+    if (!presence.ok) {
+      return NextResponse.json({ error: presence.error }, { status: presence.status });
     }
 
     let passcodeHash: string | null = null;
@@ -228,7 +241,7 @@ export async function POST(request: Request) {
       Company: companyRowId ?? null,
       AttendanceType: workerType || "Contractor",
       SignInTime: now,
-      SignInMethod: "SelfRegistration",
+      SignInMethod: presence.method,
       WorkActivity: null,
       AcknowledgedSiteRules: acknowledgedSiteRules || false,
       FitForWorkConfirmed: fitForWorkConfirmed || false,

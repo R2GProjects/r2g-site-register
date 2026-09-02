@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, findSiteByCode } from "@/lib/nocodb";
+import { createGateToken, GATE_COOKIE, GATE_MAX_AGE } from "@/lib/presence";
 
 export async function GET(request: Request) {
   try {
@@ -25,7 +26,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Site not found" }, { status: 404 });
     }
 
-    return NextResponse.json(site);
+    // Opening this URL is what scanning the gate QR does. The cookie is the
+    // proof sign-in accepts when the phone will not (or cannot) share a GPS fix.
+    const resp = NextResponse.json(site);
+    resp.cookies.set(GATE_COOKIE, createGateToken(String(site.SiteCode)), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: GATE_MAX_AGE,
+    });
+    return resp;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

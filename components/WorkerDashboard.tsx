@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
+import { readDevicePosition } from "@/lib/client-location";
 import type { CredentialState } from "@/lib/credentials";
 
 interface WorkerData {
@@ -85,12 +86,23 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
     setActionLoading(true);
     setMessage("");
     try {
+      let lat: number | undefined;
+      let lng: number | undefined;
+      try {
+        const pos = await readDevicePosition();
+        lat = pos.lat;
+        lng = pos.lng;
+      } catch {
+        // No GPS — the server will accept a recent scan of the site QR instead.
+      }
       const res = await fetch("/api/attend/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...credentials,
           siteCode,
+          lat,
+          lng,
           acknowledgedSiteRules: true,
           fitForWorkConfirmed: true,
         }),
@@ -333,6 +345,9 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
               <button className="btn btn-primary btn-block" onClick={handleSignInToSite} disabled={actionLoading}>
                 {actionLoading ? <div className="spinner" /> : "Sign In"}
               </button>
+              <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 8 }}>
+                Location confirms you are at the site. If GPS is blocked, scan the QR at the gate instead.
+              </p>
             </div>
             <p style={{ fontWeight: 600, marginBottom: 8 }}>Your sites:</p>
             {data.siteAccess.length === 0 ? (
