@@ -26,6 +26,7 @@ export interface Site {
   Postcode: string | null;
   SiteManager: string | null;
   SiteManagerPhone: string | null;
+  SiteManagerEmail: string | null;
   Client: string | null;
   Status: string | null;
   StartDate: string | null;

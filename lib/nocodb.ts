@@ -126,6 +126,17 @@ export async function ensureRetentionColumns(): Promise<void> {
   await ensureColumns("retention-visitors", TABLES.Visitors, spec);
 }
 
+/** Email for the site manager, and stamps so a reminder is not sent twice. */
+export async function ensureNotifyColumns(): Promise<void> {
+  await ensureColumns("notify-sites", TABLES.Sites, [
+    { title: "SiteManagerEmail", uidt: "SingleLineText" },
+    { title: "LastSummaryDate", uidt: "SingleLineText" },
+  ]);
+  await ensureColumns("notify-attendance", TABLES.Attendance, [
+    { title: "SignOutRemindedAt", uidt: "DateTime" },
+  ]);
+}
+
 /** When a person accepted the collection notice, and which wording. */
 export async function ensurePrivacyColumns(table: "people" | "visitors"): Promise<void> {
   const spec = [
@@ -290,7 +301,7 @@ export async function attachVisitorDetails<T extends Record<string, unknown>>(
   if (ids.length === 0) return records;
   const visitors = await list<Record<string, unknown>>(TABLES.Visitors, {
     where: `(Id,in,${ids.join(",")})`,
-    fields: "Id,FirstName,LastName,ReasonForVisit,PersonVisiting,Mobile,CompanyName",
+    fields: "Id,FirstName,LastName,ReasonForVisit,PersonVisiting,Mobile,CompanyName,Email",
     limit: ids.length,
   });
   const map = new Map(visitors.map(v => [v.Id as number, v]));

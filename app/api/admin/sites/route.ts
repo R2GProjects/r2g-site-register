@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { TABLES, listPage, create, update, escapeLikeValue, numericId } from "@/lib/nocodb";
+import { TABLES, listPage, create, update, escapeLikeValue, numericId, ensureNotifyColumns } from "@/lib/nocodb";
 import { validateAdminAuth, nowISO, generateUUID } from "@/lib/auth";
 import type { Site } from "@/lib/types";
 
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json();
+    await ensureNotifyColumns();
     const now = nowISO();
     const id = await create(TABLES.Sites, {
       SiteUUID: generateUUID(),
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       Postcode: body.Postcode || null,
       SiteManager: body.SiteManager || null,
       SiteManagerPhone: body.SiteManagerPhone || null,
+      SiteManagerEmail: body.SiteManagerEmail || null,
       Client: body.Client || null,
       Status: body.Status || "Setup",
       StartDate: body.StartDate || null,
@@ -78,6 +80,7 @@ export async function PATCH(request: Request) {
     if (!numericId(body.Id)) {
       return NextResponse.json({ error: "Id required" }, { status: 400 });
     }
+    await ensureNotifyColumns();
     await update(TABLES.Sites, { ...body, UpdatedAt1: nowISO() });
     return NextResponse.json({ ok: true });
   } catch (err) {

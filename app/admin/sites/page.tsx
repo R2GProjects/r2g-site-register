@@ -28,7 +28,7 @@ export default function SitesPage() {
 
   const defaultForm = {
     SiteCode: "", SiteName: "", Address: "", Suburb: "", State: "NSW", Postcode: "",
-    SiteManager: "", SiteManagerPhone: "", Client: "", Status: "Setup",
+    SiteManager: "", SiteManagerPhone: "", SiteManagerEmail: "", Client: "", Status: "Setup",
     Latitude: "", Longitude: "",
     EmergencyPlanURL: "", RequiresInduction: false, InductionRules: "",
     Notes: "",
@@ -321,6 +321,10 @@ export default function SitesPage() {
           <div className="form-group">
             <label>Site Manager Phone</label>
             <input name="SiteManagerPhone" value={(form.SiteManagerPhone as string) || ""} onChange={handleFormChange} />
+          </div>
+          <div className="form-group">
+            <label>Site Manager Email</label>
+            <input name="SiteManagerEmail" type="email" value={(form.SiteManagerEmail as string) || ""} onChange={handleFormChange} placeholder="For the evening sign-out summary" />
           </div>
           <div className="form-group">
             <label>Client</label>

@@ -23,9 +23,12 @@ Copy `.env.example` to `.env` and fill in:
 - `ADMIN_USERNAME` — Admin login username
 - `ADMIN_PASSWORD` — Admin login password
 - `SESSION_SECRET` — HMAC key for admin sessions. **Required in production** — the app will not start without it. Generate with `openssl rand -hex 32`.
-- `CRON_SECRET` — shared secret for the scheduled auto-close and retention jobs. Generate the same way.
+- `CRON_SECRET` — shared secret for the scheduled auto-close, retention and notification jobs. Generate the same way.
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
 - `AUTO_CLOSE_MAX_HOURS` — optional, default `12`. A record open longer than this is treated as a forgotten sign-out.
+- `NOTIFY_WEBHOOK_URL` — optional. POST JSON here for sign-out reminders and the daily site summary (Zapier, n8n, Synology).
+- `RESEND_API_KEY` / `NOTIFY_FROM` — optional. Built-in email when no webhook is set. `NOTIFY_FROM` must be a verified Resend sender.
+- `NOTIFY_DEFAULT_TO` — optional. Fallback address when a site has no manager email.
 - `INDUCTION_VALIDITY_DAYS` — optional, default `365`. How long a site induction stays valid before it must be run again.
 - `DATA_RETENTION_YEARS` — optional, default `7`. Stated in the collection notice; changing it changes the notice version.
 - `PRIVACY_CONTACT` — optional. Named in the notice as who to ask about personal information.
@@ -216,6 +219,37 @@ curl -fsS -X POST https://<host>/api/cron/auto-close \
 
 Preview without changing anything by appending `?dryRun=1`. A signed-in admin
 can also run it from the browser without the secret.
+
+## Sign-out reminders
+
+Auto-close at 2am is too late for someone who walked off at 5pm. `POST /api/cron/notify`
+runs in the evening, after `AUTO_CLOSE_CUTOFF`, and:
+
+- emails anyone still signed in who started as a day shift (before cut-off, and
+  not yet due for auto-close)
+- emails the site manager a same-day summary: who is still on site, counts in
+  and out, and anyone who signed in after knock-off
+
+A night-shift worker who signed in after cut-off is not nagged. A person
+with no email is listed in the manager summary instead. The same attendance
+is not reminded twice. A quiet site with nobody in today is not mailed.
+
+Set a site manager email in Admin → Sites. `NOTIFY_DEFAULT_TO` is the fallback
+when a site has none.
+
+Delivery is either a webhook (`NOTIFY_WEBHOOK_URL`) or Resend
+(`RESEND_API_KEY` and `NOTIFY_FROM`). If neither is set the job still reports
+who would have been told; it does not mark them as sent.
+
+Add a task in the same scheduler for shortly after knock-off (18:15 suits
+when cut-off is 18:00):
+
+```bash
+curl -fsS -X POST https://<host>/api/cron/notify \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Preview with `?dryRun=1`. Same secret and admin-session fallback as auto-close.
 
 ## Data retention
 
