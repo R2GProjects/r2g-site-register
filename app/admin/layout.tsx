@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { href: "/admin/onsite", label: "On-Site" },
   { href: "/admin/prestart", label: "Pre-start" },
   { href: "/admin/incidents", label: "Incidents" },
+  { href: "/admin/documents", label: "Documents" },
   { href: "/admin/emergency", label: "Emergency" },
   { href: "/admin/people", label: "People" },
   { href: "/admin/companies", label: "Companies" },

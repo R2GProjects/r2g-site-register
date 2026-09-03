@@ -258,6 +258,57 @@ export async function ensureIncidentTable(): Promise<string> {
   return incidentTableId;
 }
 
+const DOCUMENT_COLUMNS: Array<{ title: string; uidt: string }> = [
+  { title: "DocumentUUID", uidt: "SingleLineText" },
+  { title: "Title", uidt: "SingleLineText" },
+  { title: "Kind", uidt: "SingleLineText" },
+  { title: "Body", uidt: "LongText" },
+  { title: "Url", uidt: "SingleLineText" },
+  { title: "Version", uidt: "SingleLineText" },
+  { title: "Required", uidt: "SingleLineText" },
+  { title: "Sites_id", uidt: "SingleLineText" },
+  { title: "ArchivedAt", uidt: "DateTime" },
+  { title: "CreatedAt1", uidt: "DateTime" },
+  { title: "UpdatedAt1", uidt: "DateTime" },
+];
+
+const DOCUMENT_ACK_COLUMNS: Array<{ title: string; uidt: string }> = [
+  { title: "AckUUID", uidt: "SingleLineText" },
+  { title: "Documents_id", uidt: "SingleLineText" },
+  { title: "DocumentVersion", uidt: "SingleLineText" },
+  { title: "Snapshot", uidt: "LongText" },
+  { title: "People_id", uidt: "SingleLineText" },
+  { title: "Sites_id", uidt: "SingleLineText" },
+  { title: "AcceptedAt", uidt: "DateTime" },
+  { title: "CreatedAt1", uidt: "DateTime" },
+];
+
+let documentTableId: Promise<string> | null = null;
+let documentAckTableId: Promise<string> | null = null;
+
+/** Site documents (SWMS etc). Created on first use. */
+export async function ensureDocumentTable(): Promise<string> {
+  if (!documentTableId) {
+    documentTableId = ensureRuntimeTable(
+      "site-documents",
+      "SiteDocuments",
+      DOCUMENT_COLUMNS
+    );
+  }
+  return documentTableId;
+}
+
+export async function ensureDocumentAckTable(): Promise<string> {
+  if (!documentAckTableId) {
+    documentAckTableId = ensureRuntimeTable(
+      "document-acks",
+      "DocumentAcks",
+      DOCUMENT_ACK_COLUMNS
+    );
+  }
+  return documentAckTableId;
+}
+
 export async function list<T>(
   tableId: string,
   params?: {

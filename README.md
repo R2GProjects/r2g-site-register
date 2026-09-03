@@ -290,6 +290,21 @@ worker's wording is not edited. If a site manager email is set, they are
 told through the same webhook or Resend path as knock-off reminders. The
 Incidents table is created in NocoDB on first use.
 
+## Site documents / SWMS
+
+Admin → Documents holds versioned SWMS, procedures and other site files.
+Each document is wording, a link, or both. Editing the title, wording or
+link is a new version on its own — the same content hash as site rules.
+A worker who already accepted the old wording stays recorded against that
+snapshot.
+
+Required documents for a worker's sites appear on their phone. They open
+the wording or the link, tick that they have read this version, and submit.
+Missing an acknowledgement is flagged; it does not block sign-in. The gate
+tablet cannot record one. Optional and archived documents are not nagged.
+The SiteDocuments and DocumentAcks tables are created in NocoDB on first
+use.
+
 ## Data retention
 
 The collection notice states that personal details are kept for
