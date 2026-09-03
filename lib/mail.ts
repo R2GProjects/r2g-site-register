@@ -7,7 +7,7 @@
  * nothing is configured the cron still reports who would have been told.
  */
 
-export type NotifyKind = "signout-reminder" | "daily-summary";
+export type NotifyKind = "signout-reminder" | "daily-summary" | "incident-report";
 
 export interface NotifyMessage {
   kind: NotifyKind;

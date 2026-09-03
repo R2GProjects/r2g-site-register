@@ -150,6 +150,59 @@ export async function ensurePrivacyColumns(table: "people" | "visitors"): Promis
   );
 }
 
+async function ensureRuntimeTable(
+  cacheKey: string,
+  title: string,
+  columns: Array<{ title: string; uidt: string }>
+): Promise<string> {
+  const listed = await fetch(
+    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
+    { headers: headers() }
+  );
+  if (!listed.ok) {
+    throw new Error(`NocoDB table list failed: ${listed.status}`);
+  }
+  const payload = await listed.json();
+  const tables: Array<{ id?: string; title?: string; table_name?: string }> =
+    payload.list || payload.tables || (Array.isArray(payload) ? payload : []);
+  const match = title.toLowerCase();
+  const existing = tables.find(
+    (table) =>
+      table.title === title ||
+      String(table.table_name || "").toLowerCase() === match
+  );
+  const id = existing?.id;
+  if (id) {
+    await ensureColumns(cacheKey, id, columns);
+    return id;
+  }
+
+  const created = await fetch(
+    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
+    {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        title,
+        table_name: title,
+        columns: [{ title: columns[0].title, uidt: columns[0].uidt }],
+      }),
+    }
+  );
+  if (!created.ok) {
+    throw new Error(
+      `NocoDB create ${title} failed: ${created.status} ${await created.text()}`
+    );
+  }
+  const body = await created.json();
+  const newId = String(body.id || body.table?.id || "");
+  if (!newId) {
+    throw new Error(`NocoDB create ${title} returned no id`);
+  }
+  await ensureColumns(cacheKey, newId, columns);
+  return newId;
+}
+
 const PRESTART_COLUMNS: Array<{ title: string; uidt: string }> = [
   { title: "PreStartUUID", uidt: "SingleLineText" },
   { title: "Day", uidt: "SingleLineText" },
@@ -171,55 +224,38 @@ let preStartTableId: Promise<string> | null = null;
  * exist answer 400/409 and are ignored, same as the other ensure helpers.
  */
 export async function ensurePreStartTable(): Promise<string> {
-  if (!preStartTableId) preStartTableId = resolvePreStartTable();
+  if (!preStartTableId) {
+    preStartTableId = ensureRuntimeTable("prestart", "PreStarts", PRESTART_COLUMNS);
+  }
   return preStartTableId;
 }
 
-async function resolvePreStartTable(): Promise<string> {
-  const listed = await fetch(
-    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
-    { headers: headers() }
-  );
-  if (!listed.ok) {
-    throw new Error(`NocoDB table list failed: ${listed.status}`);
-  }
-  const payload = await listed.json();
-  const tables: Array<{ id?: string; title?: string; table_name?: string }> =
-    payload.list || payload.tables || (Array.isArray(payload) ? payload : []);
-  const existing = tables.find(
-    (table) =>
-      table.title === "PreStarts" ||
-      table.table_name === "PreStarts" ||
-      table.table_name === "prestarts"
-  );
-  const id = existing?.id;
-  if (id) {
-    await ensureColumns("prestart", id, PRESTART_COLUMNS);
-    return id;
-  }
+const INCIDENT_COLUMNS: Array<{ title: string; uidt: string }> = [
+  { title: "IncidentUUID", uidt: "SingleLineText" },
+  { title: "Kind", uidt: "SingleLineText" },
+  { title: "Status", uidt: "SingleLineText" },
+  { title: "What", uidt: "LongText" },
+  { title: "WhereOnSite", uidt: "SingleLineText" },
+  { title: "Action", uidt: "LongText" },
+  { title: "OccurredAt", uidt: "DateTime" },
+  { title: "Day", uidt: "SingleLineText" },
+  { title: "Sites_id", uidt: "SingleLineText" },
+  { title: "People_id", uidt: "SingleLineText" },
+  { title: "Attendance_id", uidt: "SingleLineText" },
+  { title: "ReporterName", uidt: "SingleLineText" },
+  { title: "AdminNotes", uidt: "LongText" },
+  { title: "CreatedAt1", uidt: "DateTime" },
+  { title: "UpdatedAt1", uidt: "DateTime" },
+];
 
-  const created = await fetch(
-    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
-    {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({
-        title: "PreStarts",
-        table_name: "PreStarts",
-        columns: [{ title: "PreStartUUID", uidt: "SingleLineText" }],
-      }),
-    }
-  );
-  if (!created.ok) {
-    throw new Error(`NocoDB create PreStarts failed: ${created.status} ${await created.text()}`);
+let incidentTableId: Promise<string> | null = null;
+
+/** Hazard / near-miss / incident reports. Created on first use. */
+export async function ensureIncidentTable(): Promise<string> {
+  if (!incidentTableId) {
+    incidentTableId = ensureRuntimeTable("incident", "Incidents", INCIDENT_COLUMNS);
   }
-  const body = await created.json();
-  const newId = String(body.id || body.table?.id || "");
-  if (!newId) {
-    throw new Error("NocoDB create PreStarts returned no id");
-  }
-  await ensureColumns("prestart", newId, PRESTART_COLUMNS);
-  return newId;
+  return incidentTableId;
 }
 
 export async function list<T>(

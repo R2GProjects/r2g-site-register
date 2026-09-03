@@ -278,6 +278,18 @@ if they have since signed out.
 A talk with nobody signed in yet can still be recorded. Missing the huddle
 does not block sign-in. The table is created in NocoDB on first use.
 
+## Hazard and incident reports
+
+A worker can raise a hazard, near miss or incident from their phone after
+sign-in. The report is tied to the site and, when they are still signed in,
+to that attendance row so an investigation can see who was on the register.
+Walking off does not block a report. The gate tablet cannot file one.
+
+Admin → Incidents lists them. Open / noted / closed is an admin stamp; the
+worker's wording is not edited. If a site manager email is set, they are
+told through the same webhook or Resend path as knock-off reminders. The
+Incidents table is created in NocoDB on first use.
+
 ## Data retention
 
 The collection notice states that personal details are kept for

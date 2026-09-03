@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { readDevicePosition } from "@/lib/client-location";
 import { postAttendance } from "@/lib/client-offline";
 import type { CredentialState } from "@/lib/credentials";
+import { INCIDENT_KIND_LABEL, type IncidentKind } from "@/lib/incident";
 
 interface WorkerData {
   person: {
@@ -42,8 +43,15 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
-  const [sites, setSites] = useState<Array<{ SiteCode: string; SiteName: string }>>([]);
+  const [sites, setSites] = useState<Array<{ Id?: number; SiteCode: string; SiteName: string }>>([]);
   const [signInSiteCode, setSignInSiteCode] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportKind, setReportKind] = useState<IncidentKind>("hazard");
+  const [reportWhat, setReportWhat] = useState("");
+  const [reportWhere, setReportWhere] = useState("");
+  const [reportAction, setReportAction] = useState("");
+  const [reportSiteId, setReportSiteId] = useState("");
+  const [reportSaving, setReportSaving] = useState(false);
 
   const credentials = accessToken ? { accessToken } : {};
   const inductionReturn = accessToken ? `/w/${encodeURIComponent(accessToken)}` : "/w";
@@ -160,6 +168,46 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
       setMessageIsError(false);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!data) return;
+    const onsiteSite =
+      data.onsite && typeof data.onsite.Site === "object" ? data.onsite.Site : null;
+    const siteId = onsiteSite?.Id ? String(onsiteSite.Id) : reportSiteId;
+    setReportSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/incidents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...credentials,
+          kind: reportKind,
+          what: reportWhat,
+          whereOnSite: reportWhere,
+          action: reportAction,
+          siteId,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setMessage(body.error || "Could not send the report");
+        setMessageIsError(true);
+        return;
+      }
+      setReportWhat("");
+      setReportWhere("");
+      setReportAction("");
+      setReportOpen(false);
+      setMessage("Report sent. The site manager will see it.");
+      setMessageIsError(false);
+    } catch {
+      setMessage("No coverage — try again when you have reception.");
+      setMessageIsError(true);
+    } finally {
+      setReportSaving(false);
     }
   };
 
@@ -385,6 +433,92 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
             {message}
           </div>
         )}
+
+        <div className="card" style={{ marginTop: 16 }}>
+          {!reportOpen ? (
+            <button className="btn btn-secondary btn-block" onClick={() => setReportOpen(true)}>
+              Report a hazard or incident
+            </button>
+          ) : (
+            <>
+              <p style={{ fontWeight: 600, marginBottom: 12 }}>Report a hazard or incident</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {(["hazard", "nearmiss", "incident"] as IncidentKind[]).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={reportKind === kind ? "btn btn-primary" : "btn btn-secondary"}
+                    style={{ minHeight: 40, padding: "6px 12px", fontSize: "0.875rem" }}
+                    onClick={() => setReportKind(kind)}
+                  >
+                    {INCIDENT_KIND_LABEL[kind]}
+                  </button>
+                ))}
+              </div>
+              {!onsite && (
+                <div className="form-group">
+                  <label htmlFor="report-site">Site</label>
+                  <select
+                    id="report-site"
+                    value={reportSiteId}
+                    onChange={(e) => setReportSiteId(e.target.value)}
+                  >
+                    <option value="">Select a site</option>
+                    {sites.filter((s) => s.Id).map((s) => (
+                      <option key={s.Id} value={s.Id}>{s.SiteName} ({s.SiteCode})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {onsiteSiteName && (
+                <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 8 }}>
+                  Site: {onsiteSiteName}
+                </p>
+              )}
+              <div className="form-group">
+                <label htmlFor="report-what">What did you see?</label>
+                <textarea
+                  id="report-what"
+                  rows={3}
+                  value={reportWhat}
+                  onChange={(e) => setReportWhat(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="report-where">Where on site (optional)</label>
+                <input
+                  id="report-where"
+                  value={reportWhere}
+                  onChange={(e) => setReportWhere(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="report-action">What did you do (optional)</label>
+                <textarea
+                  id="report-action"
+                  rows={2}
+                  value={reportAction}
+                  onChange={(e) => setReportAction(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary btn-block"
+                onClick={handleReport}
+                disabled={reportSaving}
+              >
+                {reportSaving ? <div className="spinner" /> : "Send report"}
+              </button>
+              <button
+                className="btn btn-secondary btn-block"
+                style={{ marginTop: 8 }}
+                onClick={() => setReportOpen(false)}
+                disabled={reportSaving}
+              >
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
 
         <button className="btn btn-secondary btn-block" style={{ marginTop: 24 }} onClick={() => router.push("/")}>
           Home
