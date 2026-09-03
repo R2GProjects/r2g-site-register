@@ -6,6 +6,7 @@ import Link from "next/link";
 const ADMIN_NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/onsite", label: "On-Site" },
+  { href: "/admin/prestart", label: "Pre-start" },
   { href: "/admin/emergency", label: "Emergency" },
   { href: "/admin/people", label: "People" },
   { href: "/admin/companies", label: "Companies" },

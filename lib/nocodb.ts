@@ -150,6 +150,78 @@ export async function ensurePrivacyColumns(table: "people" | "visitors"): Promis
   );
 }
 
+const PRESTART_COLUMNS: Array<{ title: string; uidt: string }> = [
+  { title: "PreStartUUID", uidt: "SingleLineText" },
+  { title: "Day", uidt: "SingleLineText" },
+  { title: "HeldAt", uidt: "DateTime" },
+  { title: "Topic", uidt: "LongText" },
+  { title: "Hazards", uidt: "LongText" },
+  { title: "LedBy", uidt: "SingleLineText" },
+  { title: "Sites_id", uidt: "SingleLineText" },
+  { title: "Roll", uidt: "LongText" },
+  { title: "CreatedAt1", uidt: "DateTime" },
+  { title: "UpdatedAt1", uidt: "DateTime" },
+];
+
+let preStartTableId: Promise<string> | null = null;
+
+/**
+ * The PreStarts table is created on first use so a deploy does not need a
+ * manual schema change. The id is cached for the process; columns that already
+ * exist answer 400/409 and are ignored, same as the other ensure helpers.
+ */
+export async function ensurePreStartTable(): Promise<string> {
+  if (!preStartTableId) preStartTableId = resolvePreStartTable();
+  return preStartTableId;
+}
+
+async function resolvePreStartTable(): Promise<string> {
+  const listed = await fetch(
+    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
+    { headers: headers() }
+  );
+  if (!listed.ok) {
+    throw new Error(`NocoDB table list failed: ${listed.status}`);
+  }
+  const payload = await listed.json();
+  const tables: Array<{ id?: string; title?: string; table_name?: string }> =
+    payload.list || payload.tables || (Array.isArray(payload) ? payload : []);
+  const existing = tables.find(
+    (table) =>
+      table.title === "PreStarts" ||
+      table.table_name === "PreStarts" ||
+      table.table_name === "prestarts"
+  );
+  const id = existing?.id;
+  if (id) {
+    await ensureColumns("prestart", id, PRESTART_COLUMNS);
+    return id;
+  }
+
+  const created = await fetch(
+    `${NOCODB_URL}/api/v2/meta/bases/${BASE_ID}/tables`,
+    {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        title: "PreStarts",
+        table_name: "PreStarts",
+        columns: [{ title: "PreStartUUID", uidt: "SingleLineText" }],
+      }),
+    }
+  );
+  if (!created.ok) {
+    throw new Error(`NocoDB create PreStarts failed: ${created.status} ${await created.text()}`);
+  }
+  const body = await created.json();
+  const newId = String(body.id || body.table?.id || "");
+  if (!newId) {
+    throw new Error("NocoDB create PreStarts returned no id");
+  }
+  await ensureColumns("prestart", newId, PRESTART_COLUMNS);
+  return newId;
+}
+
 export async function list<T>(
   tableId: string,
   params?: {

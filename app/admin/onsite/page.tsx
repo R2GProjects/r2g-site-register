@@ -18,7 +18,10 @@ export default function AdminOnSite() {
 
   return (
     <div style={{ paddingTop: 24 }}>
-      <h2 style={{ marginBottom: 16 }}>On-Site Now ({records.length})</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <h2 style={{ margin: 0 }}>On-Site Now ({records.length})</h2>
+        <a className="btn btn-secondary" href="/admin/prestart">Pre-start</a>
+      </div>
       {records.length === 0 ? (
         <p style={{ color: "var(--muted)" }}>No one currently on site.</p>
       ) : (

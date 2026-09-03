@@ -267,6 +267,17 @@ spreadsheet can pivot. Print expands the list. The view is capped at
 2,000 sign-ins, the same as Attendance — narrow the dates on a long
 history.
 
+## Pre-start / toolbox talks
+
+Admin → Pre-start records the morning huddle against who is signed in at
+that site. Everyone currently on site starts ticked present; untick anyone
+who was not at the talk. A late arrival is added with “Add people who
+signed in since” — people already on the roll keep the tick you set, even
+if they have since signed out.
+
+A talk with nobody signed in yet can still be recorded. Missing the huddle
+does not block sign-in. The table is created in NocoDB on first use.
+
 ## Data retention
 
 The collection notice states that personal details are kept for
