@@ -1,6 +1,50 @@
 "use client";
 import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
+import type { CoverState } from "@/lib/company-cover";
+
+/** A date input only accepts YYYY-MM-DD, but the stored value may carry a time. */
+function dateValue(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  return raw ? raw.slice(0, 10) : "";
+}
+
+const COVER_BADGE: Record<
+  CoverState["status"],
+  { className: string; label: (c: CoverState) => string } | null
+> = {
+  expired: {
+    className: "badge badge-suspended",
+    label: (c) => `${c.label} expired`,
+  },
+  expiring: {
+    className: "badge badge-pending",
+    label: (c) => `${c.label} due in ${Math.max(0, c.daysRemaining ?? 0)}d`,
+  },
+  unverified: {
+    className: "badge badge-signedout",
+    label: (c) => `${c.label}: no expiry`,
+  },
+  missing: null,
+  valid: null,
+};
+
+function CoverBadges({ cover }: { cover?: CoverState[] }) {
+  const shown = (cover || []).filter((c) => COVER_BADGE[c.status]);
+  if (shown.length === 0) return <span style={{ color: "var(--muted)" }}>-</span>;
+  return (
+    <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {shown.map((c) => {
+        const badge = COVER_BADGE[c.status]!;
+        return (
+          <span key={c.key} className={badge.className}>
+            {badge.label(c)}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 export default function CompaniesPage() {
   const [items, setItems] = useState<Array<Record<string,unknown>>>([]);
@@ -16,6 +60,9 @@ export default function CompaniesPage() {
   const defaultForm: Record<string,unknown> = {
     CompanyName: "", TradingName: "", ABN: "", ContactName: "", ContactPhone: "", ContactEmail: "",
     CompanyType: "Contractor", Status: "Active", Notes: "",
+    PublicLiabilityNumber: "", PublicLiabilityExpiry: "",
+    WorkersCompNumber: "", WorkersCompExpiry: "",
+    ContractorLicenceNumber: "", ContractorLicenceExpiry: "",
   };
   const [form, setForm] = useState<Record<string,unknown>>({ ...defaultForm });
 
@@ -33,7 +80,7 @@ export default function CompaniesPage() {
   const onSearch = () => { setPage(0); load(0, search); };
 
   const openCreate = () => { setEditItem(null); setForm({ ...defaultForm, CompanyType: "Contractor", Status: "Active" }); setFormError(""); setModalOpen(true); };
-  const openEdit = (item: Record<string,unknown>) => { setEditItem(item); setForm({ ...item }); setFormError(""); setModalOpen(true); };
+  const openEdit = (item: Record<string,unknown>) => { setEditItem(item); setForm({ ...defaultForm, ...item }); setFormError(""); setModalOpen(true); };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -45,7 +92,8 @@ export default function CompaniesPage() {
     try {
       const url = "/api/admin/companies";
       const method = editItem ? "PATCH" : "POST";
-      const body = editItem ? { ...form, Id: editItem.Id } : form;
+      const { cover: _cover, ...fields } = form;
+      const body = editItem ? { ...fields, Id: editItem.Id } : fields;
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await res.json();
       if (!res.ok) { setFormError(d.error || "Save failed"); }
@@ -67,7 +115,7 @@ export default function CompaniesPage() {
       {loading ? <div className="loading"><div className="spinner" /></div> : (
         <div style={{ overflowX: "auto" }}>
           <table>
-            <thead><tr><th>Name</th><th>ABN</th><th>Type</th><th>Contact</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>ABN</th><th>Type</th><th>Contact</th><th>Cover</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {items.map(c => (
                 <tr key={c.Id as number}>
@@ -75,6 +123,7 @@ export default function CompaniesPage() {
                   <td>{(c.ABN as string) || "-"}</td>
                   <td><span className="badge badge-active">{(c.CompanyType as string) || "Other"}</span></td>
                   <td>{(c.ContactName as string) || "-"}</td>
+                  <td><CoverBadges cover={c.cover as CoverState[] | undefined} /></td>
                   <td>{(c.Status as string) === "Active" ? <span className="badge badge-active">Active</span> : <span className="badge badge-suspended">{c.Status as string}</span>}</td>
                   <td><button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 12px", fontSize: "0.75rem" }} onClick={() => openEdit(c)}>Edit</button></td>
                 </tr>
@@ -111,6 +160,16 @@ export default function CompaniesPage() {
               <option>Active</option><option>Inactive</option>
             </select>
           </div>
+          <p style={{ fontWeight: 600, margin: "16px 0 8px" }}>Insurance and licences</p>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 12 }}>
+            Lapsed cover is flagged on this list. It does not stop a worker signing in.
+          </p>
+          <div className="form-group"><label>Public liability number</label><input name="PublicLiabilityNumber" value={(form.PublicLiabilityNumber as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Public liability expiry</label><input name="PublicLiabilityExpiry" type="date" value={dateValue(form.PublicLiabilityExpiry)} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Workers compensation number</label><input name="WorkersCompNumber" value={(form.WorkersCompNumber as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Workers compensation expiry</label><input name="WorkersCompExpiry" type="date" value={dateValue(form.WorkersCompExpiry)} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Contractor licence number</label><input name="ContractorLicenceNumber" value={(form.ContractorLicenceNumber as string) || ""} onChange={handleFormChange} /></div>
+          <div className="form-group"><label>Contractor licence expiry</label><input name="ContractorLicenceExpiry" type="date" value={dateValue(form.ContractorLicenceExpiry)} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Notes</label><textarea name="Notes" value={(form.Notes as string) || ""} onChange={handleFormChange} rows={2} /></div>
           {formError && <div className="error" style={{ marginBottom: 12 }}>{formError}</div>}
           <button className="btn btn-primary btn-block" onClick={handleSave} disabled={saving}>

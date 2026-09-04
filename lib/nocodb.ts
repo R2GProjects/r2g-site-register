@@ -126,6 +126,18 @@ export async function ensureRetentionColumns(): Promise<void> {
   await ensureColumns("retention-visitors", TABLES.Visitors, spec);
 }
 
+/** Insurance and contractor licence dates on a company. Created on first use. */
+export async function ensureCompanyCoverColumns(): Promise<void> {
+  await ensureColumns("company-cover", TABLES.Companies, [
+    { title: "PublicLiabilityNumber", uidt: "SingleLineText" },
+    { title: "PublicLiabilityExpiry", uidt: "Date" },
+    { title: "WorkersCompNumber", uidt: "SingleLineText" },
+    { title: "WorkersCompExpiry", uidt: "Date" },
+    { title: "ContractorLicenceNumber", uidt: "SingleLineText" },
+    { title: "ContractorLicenceExpiry", uidt: "Date" },
+  ]);
+}
+
 /** Email for the site manager, and stamps so a reminder is not sent twice. */
 export async function ensureNotifyColumns(): Promise<void> {
   await ensureColumns("notify-sites", TABLES.Sites, [

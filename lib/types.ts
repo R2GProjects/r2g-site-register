@@ -10,6 +10,12 @@ export interface Company {
   CompanyType: string | null;
   Status: string | null;
   Notes: string | null;
+  PublicLiabilityNumber: string | null;
+  PublicLiabilityExpiry: string | null;
+  WorkersCompNumber: string | null;
+  WorkersCompExpiry: string | null;
+  ContractorLicenceNumber: string | null;
+  ContractorLicenceExpiry: string | null;
   CreatedAt1: string;
   UpdatedAt1: string;
 }

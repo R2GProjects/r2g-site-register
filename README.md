@@ -80,6 +80,17 @@ missing expiry does not: refusing entry over data nobody has yet supplied is
 the wrong way to fail. A photographed card is evidence a supervisor can look
 at. It is not a check against an issuer register.
 
+## Company insurance and licences
+
+Admin → Companies records public liability, workers compensation and a
+contractor licence number with their expiry dates. A date that has passed, or
+is inside the same warning window as a white card, is flagged on the list.
+
+Missing or unreadable dates are not treated as lapsed. Lapsed company cover
+does not block a worker at the gate — that is an admin problem, not something
+to dump on a labourer signing in. The six columns are created in NocoDB on
+first use.
+
 ## Person photograph
 
 A photograph of the worker can be taken at registration or added in
