@@ -51,6 +51,7 @@ export default function SitePage() {
   const [signInLoading, setSignInLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
   const [queued, setQueued] = useState(false);
+  const [regDone, setRegDone] = useState<{ note: string; accessToken: string | null } | null>(null);
 
   useEffect(() => {
     fetch(`/api/sites?code=${encodeURIComponent(siteCode)}`)
@@ -167,9 +168,14 @@ export default function SitePage() {
       const data = await res.json();
       if (!res.ok) {
         setRegError(data.error || "Registration failed");
+      } else if (data.pendingApproval) {
+        setRegDone({
+          note: data.note || "Site access is waiting for admin approval.",
+          accessToken: data.accessToken || null,
+        });
       } else {
         // Redirect to worker dashboard — they're already signed in. A worker we
-        // matched to an existing record gets no new token, but does get a
+        // matched to an existing Approved record gets no new token, but does get a
         // session cookie, so send them to the token-less dashboard.
         router.push(data.accessToken ? `/w/${data.accessToken}` : "/w");
       }
@@ -302,7 +308,7 @@ export default function SitePage() {
                   style={{ marginTop: 8 }}
                   onClick={() => { setShowRegisterForm(true); setRegError(""); }}
                 >
-                  Don&apos;t have a token? Register &amp; Sign In
+                  Don&apos;t have a token? Register
                 </button>
                 <button
                   className="btn btn-secondary btn-block"
@@ -312,11 +318,27 @@ export default function SitePage() {
                   Cancel
                 </button>
               </>
+            ) : regDone ? (
+              <>
+                <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Registered</h3>
+                <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 16 }}>
+                  {regDone.note}
+                </p>
+                <button
+                  className="btn btn-primary btn-block"
+                  onClick={() =>
+                    router.push(regDone.accessToken ? `/w/${regDone.accessToken}` : "/w")
+                  }
+                >
+                  Go to My Dashboard
+                </button>
+              </>
             ) : (
               <>
-                <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Register &amp; Sign In</h3>
+                <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Register</h3>
                 <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 16 }}>
-                  Enter your details to register and sign in to <strong>{site.SiteName}</strong>.
+                  Enter your details to register at <strong>{site.SiteName}</strong>.
+                  A supervisor must approve access before you can sign in.
                 </p>
 
                 <form onSubmit={handleRegisterAndSignIn}>
@@ -412,7 +434,7 @@ export default function SitePage() {
                   {regError && <div className="error" style={{ marginBottom: 16 }}>{regError}</div>}
 
                   <button className="btn btn-primary btn-block" type="submit" disabled={regLoading}>
-                    {regLoading ? <div className="spinner" /> : "Register & Sign In"}
+                    {regLoading ? <div className="spinner" /> : "Register"}
                   </button>
                   <button
                     className="btn btn-secondary btn-block"

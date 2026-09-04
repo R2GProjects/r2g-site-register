@@ -21,6 +21,12 @@ import { guard, HOUR } from "@/lib/rate-limit";
 import { cardImageCreateFields } from "@/lib/media";
 import { evaluatePresence, gateCookieFromRequest } from "@/lib/presence";
 import { isKioskRequest } from "@/lib/kiosk";
+import {
+  isAccessQueueReason,
+  pendingApprovalNote,
+  signInAccess,
+  siteAccessBlockedPayload,
+} from "@/lib/site-access";
 
 export async function POST(request: Request) {
   try {
@@ -176,29 +182,53 @@ export async function POST(request: Request) {
       });
     }
 
-    // Auto-approve SiteAccess — worker is physically present at site
+    // Being at the gate is not approval. A missing row becomes Pending so it
+    // shows in Admin → People; an existing row is left as the admin left it.
     const existingAccess = await list<Record<string, unknown>>(TABLES.SiteAccess, {
       where: `(People_id,eq,${personId})~and(Sites_id,eq,${site.Id})`,
       limit: 1,
       fields: "Id,AccessStatus,StartDate",
     });
-    if (existingAccess[0]) {
-      await update(TABLES.SiteAccess, {
-        Id: existingAccess[0].Id as number,
-        AccessStatus: "Approved",
-        StartDate: (existingAccess[0].StartDate as string) || now,
-        UpdatedAt1: now,
-      });
-    } else {
+    let accessStatus: unknown = existingAccess[0]?.AccessStatus;
+    if (!existingAccess[0]) {
       await create(TABLES.SiteAccess, {
         SiteAccessUUID: generateUUID(),
         Site: site.Id,
         Person: personId,
-        AccessStatus: "Approved",
+        AccessStatus: "Pending",
         StartDate: now,
         CreatedAt1: now,
         UpdatedAt1: now,
       });
+      accessStatus = "Pending";
+    }
+    const accessDecision = signInAccess(accessStatus);
+    if (!accessDecision.ok) {
+      if (!isAccessQueueReason(accessDecision.reason)) {
+        return NextResponse.json(siteAccessBlockedPayload(accessDecision.reason), {
+          status: 403,
+        });
+      }
+      const pending = NextResponse.json({
+        personId,
+        personUUID,
+        accessToken: token,
+        siteCode,
+        siteName: site.SiteName,
+        pendingApproval: true,
+        recovered: Boolean(existing),
+        note: pendingApprovalNote(),
+      });
+      if (!kioskMode) {
+        pending.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: WORKER_MAX_AGE,
+        });
+      }
+      return pending;
     }
 
     // A recovered worker may already be signed in; a second open record would

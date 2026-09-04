@@ -45,7 +45,7 @@ const emptyVisitor = {
 type Panel = "home" | "worker" | "register" | "visitor";
 
 interface Success {
-  kind: "in" | "out" | "visitor" | "already" | "queued";
+  kind: "in" | "out" | "visitor" | "already" | "queued" | "pending";
   title: string;
   detail: string;
   passUrl?: string;
@@ -308,6 +308,14 @@ export default function KioskPage() {
         return;
       }
       const name = `${regForm.firstName.trim()} ${regForm.lastName.trim()}`;
+      if (data.pendingApproval) {
+        setSuccess({
+          kind: "pending",
+          title: "Registered",
+          detail: data.note || "Waiting for a supervisor to approve site access.",
+        });
+        return;
+      }
       setSuccess({
         kind: "in",
         title: `Welcome, ${name}`,
@@ -400,10 +408,16 @@ export default function KioskPage() {
         <div className="container" style={{ textAlign: "center", paddingTop: 32 }}>
           <div className="card">
             <span
-              className={`badge ${success.kind === "out" || success.kind === "queued" ? "badge-signedout" : "badge-onsite"}`}
+              className={`badge ${success.kind === "out" || success.kind === "queued" || success.kind === "pending" ? "badge-signedout" : "badge-onsite"}`}
               style={{ fontSize: "1rem", padding: "8px 16px" }}
             >
-              {success.kind === "out" ? "Signed out" : success.kind === "queued" ? "Saved" : "On site"}
+              {success.kind === "out"
+                ? "Signed out"
+                : success.kind === "queued"
+                  ? "Saved"
+                  : success.kind === "pending"
+                    ? "Waiting"
+                    : "On site"}
             </span>
             <h2 style={{ fontSize: "1.5rem", marginTop: 16 }}>{success.title}</h2>
             <p style={{ color: "var(--muted)", marginTop: 8 }}>{success.detail}</p>
@@ -534,7 +548,10 @@ export default function KioskPage() {
 
         {panel === "register" && (
           <form onSubmit={handleRegister} className="card">
-            <h3 style={{ fontSize: "1.125rem", marginBottom: 16 }}>First time here</h3>
+            <h3 style={{ fontSize: "1.125rem", marginBottom: 8 }}>First time here</h3>
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: 16 }}>
+              A supervisor must approve access before you can sign in.
+            </p>
             <div className="form-group">
               <label>First name *</label>
               <input
@@ -598,7 +615,7 @@ export default function KioskPage() {
             <PrivacyNotice accepted={privacyAccepted} onChange={setPrivacyAccepted} />
             {formError && <div className="error" style={{ marginBottom: 12 }}>{formError}</div>}
             <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
-              {busy ? <div className="spinner" /> : "Register and sign in"}
+              {busy ? <div className="spinner" /> : "Register"}
             </button>
             <button
               className="btn btn-secondary btn-block"

@@ -22,6 +22,10 @@ import {
 } from "@/lib/presence";
 import { isKioskRequest } from "@/lib/kiosk";
 import { isQueuedRequest, resolveQueuedEventTime } from "@/lib/offline-queue";
+import {
+  signInAccess,
+  siteAccessBlockedPayload,
+} from "@/lib/site-access";
 
 function signedInResponse(
   payload: Record<string, unknown>,
@@ -118,36 +122,29 @@ export async function POST(request: Request) {
     }
 
     const now = event.iso;
-    let access = await list<Record<string, unknown>>(TABLES.SiteAccess, {
-      where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})~and(AccessStatus,eq,Approved)`,
+    const access = await list<Record<string, unknown>>(TABLES.SiteAccess, {
+      where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})`,
       limit: 1,
     });
     if (!access[0]) {
-      const existingAccess = await list<Record<string, unknown>>(TABLES.SiteAccess, {
-        where: `(People_id,eq,${person.Id})~and(Sites_id,eq,${site.Id})`,
-        limit: 1,
+      // Queue them rather than minting Approved. Pending is an explicit
+      // status — creating the row is how they appear on Admin → People.
+      await create(TABLES.SiteAccess, {
+        SiteAccessUUID: generateUUID(),
+        Site: site.Id,
+        Person: person.Id,
+        AccessStatus: "Pending",
+        StartDate: now,
+        CreatedAt1: now,
+        UpdatedAt1: now,
       });
-      if (existingAccess[0]) {
-        await update(TABLES.SiteAccess, {
-          Id: existingAccess[0].Id as number,
-          AccessStatus: "Approved",
-          ApprovedDate: now,
-          StartDate: (existingAccess[0].StartDate as string) || now,
-          UpdatedAt1: now,
-        });
-        access = [{ ...existingAccess[0], AccessStatus: "Approved" }];
-      } else {
-        const accessId = await create(TABLES.SiteAccess, {
-          SiteAccessUUID: generateUUID(),
-          Site: site.Id,
-          Person: person.Id,
-          AccessStatus: "Approved",
-          StartDate: now,
-          CreatedAt1: now,
-          UpdatedAt1: now,
-        });
-        access = [{ Id: accessId, SiteInductionComplete: false }];
-      }
+      return NextResponse.json(siteAccessBlockedPayload("pending"), { status: 403 });
+    }
+    const decision = signInAccess(access[0].AccessStatus);
+    if (!decision.ok) {
+      return NextResponse.json(siteAccessBlockedPayload(decision.reason), {
+        status: 403,
+      });
     }
     const sa = access[0];
     if (sa.EndDate) {

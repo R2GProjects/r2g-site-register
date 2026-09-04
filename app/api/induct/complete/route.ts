@@ -95,13 +95,13 @@ export async function POST(request: Request) {
         UpdatedAt1: now,
       });
     } else {
-      // Sign-in gates on this row, so inducting before a first sign-in would
-      // otherwise record the induction and still leave the worker blocked.
+      // Induction is recorded on the access row. It must not grant access —
+      // that is still an admin decision. Pending puts them in the queue.
       await create(TABLES.SiteAccess, {
         SiteAccessUUID: generateUUID(),
         Site: site.Id,
         Person: person.Id,
-        AccessStatus: "Approved",
+        AccessStatus: "Pending",
         StartDate: now,
         SiteInductionComplete: true,
         SiteInductionDate: now,

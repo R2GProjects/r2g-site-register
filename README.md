@@ -133,6 +133,8 @@ Sign-in from the kiosk does not set the worker session cookie, and opening the
 kiosk clears any leftover personal login on the tablet, so the next person
 cannot act as the last one. If the site requires an induction, the worker
 completes it on their own phone (scan the site QR) and then signs in here.
+First-time registration waits for admin approval rather than signing the
+worker onto site.
 
 Leave kiosk is a small control at the bottom, not a header link.
 
@@ -145,7 +147,7 @@ when coverage returns. The time on the record is the tap, not the sync, so a
 
 GPS or a gate-QR proof is captured at the tap and judged at that moment, so a
 flush from the lunch van does not look like a sign-in from off site. A 4xx
-(wrong passcode, expired card, induction required) is not queued — those will
+(wrong passcode, expired card, induction required, access still pending) is not queued — those will
 not heal themselves. First-time registration still needs a live connection.
 
 The app is installable (Add to Home Screen). The service worker is registered
@@ -196,9 +198,24 @@ hours, inductions and site access across two identities nothing links together.
 Registration now looks for an existing person by mobile (compared as digits, so
 formatting differences still match) or email, and refuses to create a second
 record. On the site sign-in page, a worker who supplies the passcode that
-matches the existing record is recognised and signed in against it instead,
-which turns the dead end into the recovery path people were already attempting.
-Anyone else is told to sign in or see the supervisor.
+matches the existing record is recognised against it instead, which turns the
+dead end into the recovery path people were already attempting. If that record
+is already Approved they are signed in; if it is still Pending they are told
+to wait. Anyone else is told to sign in or see the supervisor.
+
+## Site access approval
+
+Registering for a site creates a Pending access row. Sign-in is refused until
+an administrator approves it in Admin → People. Completing an induction records
+that the worker has done it; it does not grant access. Standing at the gate
+does not auto-approve.
+
+If there is no access row yet, a sign-in attempt creates a Pending one so it
+appears in the queue rather than minting an Approved record. Denied, revoked
+and expired rows stay as they are. Pending is an explicit status — it is not
+the same as missing data, and it does block sign-in.
+
+A recovered worker who is already Approved is still signed in at the gate.
 
 ## Tests
 
