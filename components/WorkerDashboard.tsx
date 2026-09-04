@@ -105,6 +105,8 @@ export default function WorkerDashboard() {
       .finally(() => setLoading(false));
   };
 
+  // The profile load is once on mount; recreating load each render is fine.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
   useEffect(() => {
     setSavedToken(recalledWorkerToken(sessionStorage));

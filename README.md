@@ -231,16 +231,20 @@ A recovered worker who is already Approved is still signed in at the gate.
 npm test          # run once
 npm run test:watch
 npm run typecheck
+npm run lint
 ```
 
 The suite covers the logic whose output the register is relied on for: the hours
 calculation, site-local day boundaries and daylight saving, the auto-close
 decision, passcode hashing and visitor pass signing, the NocoDB filter escaping,
 and the evacuation roll grouping. These are pure functions, so the tests need no
-database and no network.
+database and no network. A smaller set of route-handler tests check that
+unauthenticated admin and cron calls are refused, that logout expires the
+cookie, and that the privacy notice is served rather than copied.
 
-CI runs the typecheck, the tests and a production build on every push and pull
-request.
+CI runs the typecheck, lint, tests and a production build on every push and pull
+request. Photos and signatures are stored as data URLs, so lint does not require
+`next/image` for those `<img>` tags.
 
 ## Scheduled auto-close
 
