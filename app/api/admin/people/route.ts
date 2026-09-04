@@ -5,12 +5,15 @@ import type { Person } from "@/lib/types";
 import {
   credentialWarnDays,
   evaluateCredentials,
+  isWhiteCardVerified,
+  nextWhiteCardVerified,
+  whiteCardNeedsReview,
   type CredentialSource,
 } from "@/lib/credentials";
 import { cardImageCreateFields, cardImagePatchFields } from "@/lib/media";
 
 const PEOPLE_LIST_FIELDS =
-  "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,LicenceNumber,LicenceType,LicenceExpiry";
+  "Id,PersonUUID,FirstName,LastName,Mobile,Email,WorkerType,JobRole,AccessEnabled,WhiteCardNumber,WhiteCardExpiry,WhiteCardVerified,LicenceNumber,LicenceType,LicenceExpiry";
 
 const PEOPLE_DETAIL_FIELDS =
   `${PEOPLE_LIST_FIELDS},WhiteCardImage,LicenceImage,PersonPhoto,EmergencyContactName,EmergencyContactPhone,Notes`;
@@ -58,7 +61,9 @@ export async function GET(request: Request) {
       }
       return NextResponse.json({
         ...row,
+        WhiteCardVerified: isWhiteCardVerified(row.WhiteCardVerified),
         credentials: evaluateCredentials(row as CredentialSource, { warnDays }),
+        cardNeedsReview: whiteCardNeedsReview(row),
       });
     }
 
@@ -85,7 +90,9 @@ export async function GET(request: Request) {
     // whose tickets have lapsed.
     const withCredentials = result.list.map((p) => ({
       ...p,
+      WhiteCardVerified: isWhiteCardVerified(p.WhiteCardVerified),
       credentials: evaluateCredentials(p as CredentialSource, { warnDays }),
+      cardNeedsReview: whiteCardNeedsReview(p),
     }));
 
     return NextResponse.json({ ...result, list: withCredentials });
@@ -123,6 +130,7 @@ export async function POST(request: Request) {
       JobRole: body.JobRole || null,
       WhiteCardNumber: body.WhiteCardNumber || null,
       WhiteCardExpiry: body.WhiteCardExpiry || null,
+      WhiteCardVerified: isWhiteCardVerified(body.WhiteCardVerified),
       LicenceNumber: body.LicenceNumber || null,
       LicenceType: body.LicenceType || null,
       LicenceExpiry: body.LicenceExpiry || null,
@@ -154,12 +162,12 @@ export async function PATCH(request: Request) {
     }
 
     let mobile = body.Mobile;
+    const [existing] = await list<Person>(TABLES.People, {
+      where: `(Id,eq,${targetId})`,
+      limit: 1,
+      fields: "Id,Mobile,WhiteCardNumber,WhiteCardVerified",
+    });
     if (mobile == null && body.passcode) {
-      const [existing] = await list<Person>(TABLES.People, {
-        where: `(Id,eq,${targetId})`,
-        limit: 1,
-        fields: "Id,Mobile",
-      });
       mobile = existing?.Mobile ?? null;
     }
     const hashed = await passcodeFields(body.passcode, mobile);
@@ -181,14 +189,25 @@ export async function PATCH(request: Request) {
     const {
       passcode: _passcode,
       credentials: _credentials,
+      cardNeedsReview: _cardNeedsReview,
       WhiteCardImage: _whiteCardImage,
       LicenceImage: _licenceImage,
       PersonPhoto: _personPhoto,
+      WhiteCardVerified: _whiteCardVerified,
       ...rest
     } = body;
+    const verified = nextWhiteCardVerified({
+      previousNumber: existing?.WhiteCardNumber,
+      nextNumber:
+        "WhiteCardNumber" in body ? body.WhiteCardNumber : existing?.WhiteCardNumber,
+      previousVerified: existing?.WhiteCardVerified,
+      imageChanged: "WhiteCardImage" in images.fields,
+      ticked: "WhiteCardVerified" in body ? body.WhiteCardVerified : undefined,
+    });
     await update(TABLES.People, {
       ...rest,
       ...images.fields,
+      WhiteCardVerified: verified,
       ...(hashed.PasscodeHash ? { PasscodeHash: hashed.PasscodeHash } : {}),
       UpdatedAt1: nowISO(),
     });

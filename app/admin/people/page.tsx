@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import ImageCapture from "@/components/ImageCapture";
 import type { CredentialState } from "@/lib/credentials";
+import { isWhiteCardVerified } from "@/lib/credentials";
 
 /** A date input only accepts YYYY-MM-DD, but the stored value may carry a time. */
 function dateValue(value: unknown): string {
@@ -31,9 +32,17 @@ const CREDENTIAL_BADGE: Record<
   valid: null,
 };
 
-function CredentialBadges({ credentials }: { credentials?: CredentialState[] }) {
+function CredentialBadges({
+  credentials,
+  cardNeedsReview,
+}: {
+  credentials?: CredentialState[];
+  cardNeedsReview?: boolean;
+}) {
   const shown = (credentials || []).filter((c) => CREDENTIAL_BADGE[c.status]);
-  if (shown.length === 0) return <span style={{ color: "var(--muted)" }}>-</span>;
+  if (shown.length === 0 && !cardNeedsReview) {
+    return <span style={{ color: "var(--muted)" }}>-</span>;
+  }
   return (
     <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
       {shown.map((c) => {
@@ -44,6 +53,9 @@ function CredentialBadges({ credentials }: { credentials?: CredentialState[] }) 
           </span>
         );
       })}
+      {cardNeedsReview ? (
+        <span className="badge badge-signedout">Card not checked</span>
+      ) : null}
     </span>
   );
 }
@@ -73,6 +85,7 @@ export default function PeoplePage() {
     JobRole: "", WorkerType: "Contractor",
     PersonPhoto: null,
     WhiteCardNumber: "", WhiteCardExpiry: "", WhiteCardImage: null,
+    WhiteCardVerified: false,
     LicenceNumber: "", LicenceType: "", LicenceExpiry: "", LicenceImage: null,
     EmergencyContactName: "", EmergencyContactPhone: "",
     AccessEnabled: true, Notes: "", passcode: "",
@@ -134,6 +147,8 @@ export default function PeoplePage() {
     const t = e.target;
     if (t.type === "checkbox") {
       setForm({ ...form, [t.name]: (t as HTMLInputElement).checked });
+    } else if (t.name === "WhiteCardNumber") {
+      setForm({ ...form, WhiteCardNumber: t.value, WhiteCardVerified: false });
     } else {
       setForm({ ...form, [t.name]: t.value });
     }
@@ -282,7 +297,7 @@ export default function PeoplePage() {
                   <td>{(p.Email as string) || "-"}</td>
                   <td><span className="badge badge-active">{(p.WorkerType as string) || "-"}</span></td>
                   <td>{(p.JobRole as string) || "-"}</td>
-                  <td><CredentialBadges credentials={p.credentials as CredentialState[] | undefined} /></td>
+                  <td><CredentialBadges credentials={p.credentials as CredentialState[] | undefined} cardNeedsReview={Boolean(p.cardNeedsReview)} /></td>
                   <td>{p.AccessEnabled ? <span className="badge badge-active">Enabled</span> : <span className="badge badge-suspended">Disabled</span>}</td>
                   <td style={{ display: "flex", gap: 4 }}>
                     <button className="btn btn-secondary" style={{ minHeight: 32, padding: "4px 8px", fontSize: "0.7rem" }} onClick={() => openEdit(p)}>Edit</button>
@@ -348,8 +363,26 @@ export default function PeoplePage() {
             <ImageCapture
               label="White Card Photo"
               value={(form.WhiteCardImage as string) || null}
-              onChange={(dataUrl) => setForm({ ...form, WhiteCardImage: dataUrl })}
+              onChange={(dataUrl) => setForm({ ...form, WhiteCardImage: dataUrl, WhiteCardVerified: false })}
             />
+          </div>
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="WhiteCardVerified"
+                checked={isWhiteCardVerified(form.WhiteCardVerified)}
+                disabled={
+                  !String(form.WhiteCardNumber || "").trim() &&
+                  !form.WhiteCardImage
+                }
+                onChange={handleFormChange}
+              />
+              Checked against the card photo
+            </label>
+            <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginTop: 4 }}>
+              Tick this after looking at the photograph. It records that a person checked it, not that SafeWork confirmed the number. It does not block sign-in.
+            </span>
           </div>
           <div className="form-group"><label>Licence Number</label><input name="LicenceNumber" value={(form.LicenceNumber as string) || ""} onChange={handleFormChange} /></div>
           <div className="form-group"><label>Licence Type</label><input name="LicenceType" value={(form.LicenceType as string) || ""} onChange={handleFormChange} /></div>

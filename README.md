@@ -86,7 +86,12 @@ list so a page of names does not pull megabytes; opening a person loads them.
 A photo is optional. Missing one does not block sign-in, for the same reason a
 missing expiry does not: refusing entry over data nobody has yet supplied is
 the wrong way to fail. A photographed card is evidence a supervisor can look
-at. It is not a check against an issuer register.
+at. It is not a check against an issuer register — SafeWork and the other
+states do not publish an API this app can call, and guessing a number format
+would refuse people over unreadable data. Admin → People has a tick, "Checked
+against the card photo", so a named supervisor can record that they looked.
+Changing the number or photo clears the tick. An unchecked card is flagged on
+the people list. It does not block sign-in.
 
 ## Company insurance and licences
 

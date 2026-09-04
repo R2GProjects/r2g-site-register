@@ -92,6 +92,7 @@ export function personAnonymiseFields(
     WhiteCardNumber: null,
     WhiteCardExpiry: null,
     WhiteCardImage: null,
+    WhiteCardVerified: false,
     LicenceNumber: null,
     LicenceType: null,
     LicenceExpiry: null,

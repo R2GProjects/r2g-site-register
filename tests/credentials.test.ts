@@ -6,6 +6,9 @@ import {
   credentialWarnDays,
   evaluateCredentials,
   expiryInstant,
+  isWhiteCardVerified,
+  nextWhiteCardVerified,
+  whiteCardNeedsReview,
 } from "@/lib/credentials";
 
 const DAY = 86_400_000;
@@ -224,5 +227,150 @@ describe("blockedMessage", () => {
     expect(message).toContain("white card");
     expect(message).toContain("ewp licence");
     expect(message).toContain(" and ");
+  });
+});
+
+describe("isWhiteCardVerified", () => {
+  it("accepts only boolean true or the stored flag 1", () => {
+    expect(isWhiteCardVerified(true)).toBe(true);
+    expect(isWhiteCardVerified("1")).toBe(true);
+  });
+
+  it.each([false, "true", "TRUE", "yes", 1, "0", "", null, undefined])(
+    "does not treat %p as a supervisor check",
+    (value) => {
+      expect(isWhiteCardVerified(value)).toBe(false);
+    }
+  );
+});
+
+describe("whiteCardNeedsReview", () => {
+  it("flags a number that nobody has looked at", () => {
+    expect(whiteCardNeedsReview({ WhiteCardNumber: "WC123" })).toBe(true);
+  });
+
+  it("flags a photograph with no number, because there is still something to look at", () => {
+    expect(
+      whiteCardNeedsReview({ WhiteCardImage: "data:image/jpeg;base64,abc" })
+    ).toBe(true);
+  });
+
+  it("is clear once a supervisor has ticked", () => {
+    expect(
+      whiteCardNeedsReview({ WhiteCardNumber: "WC123", WhiteCardVerified: true })
+    ).toBe(false);
+    expect(
+      whiteCardNeedsReview({ WhiteCardNumber: "WC123", WhiteCardVerified: "1" })
+    ).toBe(false);
+  });
+
+  it("still needs review when the stored tick is the string true", () => {
+    expect(
+      whiteCardNeedsReview({
+        WhiteCardNumber: "WC123",
+        WhiteCardVerified: "true",
+      })
+    ).toBe(true);
+  });
+
+  it("is not an issuer problem when there is no card on file", () => {
+    expect(whiteCardNeedsReview({})).toBe(false);
+    expect(whiteCardNeedsReview(null)).toBe(false);
+  });
+
+  it("never turns an unchecked card into a sign-in block", () => {
+    const states = evaluateCredentials(
+      { WhiteCardNumber: "WC123", WhiteCardExpiry: asDate(days(90)) },
+      { now: NOW, warnDays: 30 }
+    );
+    expect(whiteCardNeedsReview({ WhiteCardNumber: "WC123" })).toBe(true);
+    expect(blockingCredentials(states)).toEqual([]);
+  });
+});
+
+describe("nextWhiteCardVerified", () => {
+  it("keeps a tick when the card did not change", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC123",
+        previousVerified: true,
+        ticked: true,
+      })
+    ).toBe(true);
+  });
+
+  it("clears the tick when the number changes and nobody re-ticks", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC999",
+        previousVerified: true,
+      })
+    ).toBe(false);
+  });
+
+  it("keeps a tick in the same save as a new number, because they looked at the new card", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC999",
+        previousVerified: true,
+        ticked: true,
+      })
+    ).toBe(true);
+  });
+
+  it("treats a trimmed number as the same card", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "  WC123  ",
+        previousVerified: true,
+      })
+    ).toBe(true);
+  });
+
+  it("clears the tick when the photograph changes and nobody re-ticks", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC123",
+        previousVerified: true,
+        imageChanged: true,
+      })
+    ).toBe(false);
+  });
+
+  it("keeps a tick in the same save as a new photograph", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC123",
+        previousVerified: false,
+        imageChanged: true,
+        ticked: true,
+      })
+    ).toBe(true);
+  });
+
+  it("clears an omitted tick when the number is blanked", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "",
+        previousVerified: "1",
+      })
+    ).toBe(false);
+  });
+
+  it("does not honour the string true as a tick", () => {
+    expect(
+      nextWhiteCardVerified({
+        previousNumber: "WC123",
+        nextNumber: "WC123",
+        ticked: "true",
+      })
+    ).toBe(false);
   });
 });

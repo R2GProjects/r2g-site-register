@@ -68,6 +68,69 @@ function stringOrNull(value: unknown): string | null {
   return text ? text : null;
 }
 
+/**
+ * A named supervisor looked at the card photograph. Only the boolean true, or
+ * the stored flag "1", counts. The string "true" does not — same rule as every
+ * other tick in this app.
+ *
+ * This is not a check against SafeWork or any other issuer. There is no public
+ * register this app can call.
+ */
+export function isWhiteCardVerified(value: unknown): boolean {
+  return value === true || value === "1";
+}
+
+export function hasWhiteCardEvidence(source: {
+  WhiteCardNumber?: unknown;
+  WhiteCardImage?: unknown;
+} | null): boolean {
+  if (!source) return false;
+  return (
+    stringOrNull(source.WhiteCardNumber) !== null ||
+    stringOrNull(source.WhiteCardImage) !== null
+  );
+}
+
+/**
+ * A number or photo is on file, and nobody has ticked that they looked at it.
+ * Missing a card is not this problem — that is already the missing-ticket flag.
+ * Unverified never blocks sign-in.
+ */
+export function whiteCardNeedsReview(
+  source: {
+    WhiteCardNumber?: unknown;
+    WhiteCardImage?: unknown;
+    WhiteCardVerified?: unknown;
+  } | null
+): boolean {
+  if (!source) return false;
+  return (
+    hasWhiteCardEvidence(source) && !isWhiteCardVerified(source.WhiteCardVerified)
+  );
+}
+
+/**
+ * If the number or photograph changed, the previous tick was about a different
+ * card. A tick in the same save is kept — the supervisor looked at the new one.
+ * Omitting the tick keeps the previous value unless the evidence changed.
+ */
+export function nextWhiteCardVerified(input: {
+  previousNumber?: unknown;
+  nextNumber?: unknown;
+  previousVerified?: unknown;
+  imageChanged?: boolean;
+  ticked?: unknown;
+}): boolean {
+  const evidenceChanged =
+    stringOrNull(input.previousNumber) !== stringOrNull(input.nextNumber) ||
+    input.imageChanged === true;
+  if (input.ticked !== undefined) {
+    return isWhiteCardVerified(input.ticked);
+  }
+  if (evidenceChanged) return false;
+  return isWhiteCardVerified(input.previousVerified);
+}
+
 function evaluate(
   key: CredentialKey,
   label: string,
@@ -111,6 +174,8 @@ function evaluate(
 export interface CredentialSource {
   WhiteCardNumber?: unknown;
   WhiteCardExpiry?: unknown;
+  WhiteCardImage?: unknown;
+  WhiteCardVerified?: unknown;
   LicenceNumber?: unknown;
   LicenceType?: unknown;
   LicenceExpiry?: unknown;
