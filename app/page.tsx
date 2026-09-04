@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import ImageCapture from "@/components/ImageCapture";
+import { stashWorkerTokenAndDashboard } from "@/lib/worker-entry";
 
 const emptyRegForm = {
   firstName: "", lastName: "", mobile: "", email: "",
@@ -52,14 +53,9 @@ export default function HomePage() {
 
   const handleWorkerAccess = async () => {
     const token = accessToken.trim();
-    if (token) {
-      router.push(`/w/${encodeURIComponent(token)}`);
-      return;
-    }
-
     const mobile = workerMobile.trim();
     const passcode = workerPasscode.trim();
-    if (!mobile || !passcode) {
+    if (!token && !(mobile && passcode)) {
       setError("Enter your mobile number and passcode, or paste your access token");
       return;
     }
@@ -70,13 +66,17 @@ export default function HomePage() {
       const res = await fetch("/api/auth/worker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile, passcode }),
+        body: JSON.stringify(
+          token
+            ? { accessToken: token }
+            : { mobile, passcode }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Sign in failed");
       } else {
-        router.push("/w");
+        router.push(stashWorkerTokenAndDashboard(token, sessionStorage));
       }
     } catch {
       setError("Network error");
@@ -279,7 +279,11 @@ export default function HomePage() {
                     <button
                       className="btn btn-primary btn-block"
                       style={{ marginTop: 16 }}
-                      onClick={() => router.push(`/w/${regResult.accessToken}`)}
+                      onClick={() =>
+                        router.push(
+                          stashWorkerTokenAndDashboard(regResult.accessToken, sessionStorage)
+                        )
+                      }
                     >
                       Go to My Dashboard
                     </button>
@@ -462,4 +466,4 @@ export default function HomePage() {
       </div>
     </div>
   );
-} 
+}

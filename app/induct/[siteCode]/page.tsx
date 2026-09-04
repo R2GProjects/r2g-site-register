@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import SignaturePad from "@/components/SignaturePad";
+import { safeWorkerReturnPath } from "@/lib/worker-entry";
 
 interface InductionData {
   siteCode: string;
@@ -122,11 +123,7 @@ export default function InductionPage() {
             <button
               className="btn btn-primary btn-block"
               style={{ marginTop: 16 }}
-              onClick={() =>
-                router.push(
-                  returnPath || (accessToken ? `/w/${encodeURIComponent(accessToken)}` : "/w")
-                )
-              }
+              onClick={() => router.push(safeWorkerReturnPath(returnPath))}
             >
               Return to Dashboard
             </button>

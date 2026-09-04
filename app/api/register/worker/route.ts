@@ -9,6 +9,9 @@ import {
   generateUUID,
   normalizeMobile,
   validatePasscode,
+  createWorkerSession,
+  WORKER_COOKIE,
+  WORKER_MAX_AGE,
 } from "@/lib/auth";
 import { resolveOrCreateCompany } from "@/lib/company";
 import { findDuplicatePerson } from "@/lib/person-auth";
@@ -130,7 +133,7 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       personId,
       accessToken: token,
       passcode: passcodeHash ? String(passcode).trim() : null,
@@ -140,6 +143,14 @@ export async function POST(request: Request) {
         ? "Registration complete. Site access is pending admin approval."
         : "Registration complete. Save your access token — you can request site access later.",
     });
+    resp.cookies.set(WORKER_COOKIE, createWorkerSession(personId), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: WORKER_MAX_AGE,
+    });
+    return resp;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

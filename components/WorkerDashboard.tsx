@@ -8,6 +8,11 @@ import { postAttendance } from "@/lib/client-offline";
 import type { CredentialState } from "@/lib/credentials";
 import { DOCUMENT_KIND_LABEL, type DocumentKind } from "@/lib/document-kinds";
 import { INCIDENT_KIND_LABEL, type IncidentKind } from "@/lib/incident";
+import {
+  inductionReturnQuery,
+  recalledWorkerToken,
+  workerPersonalQrUrl,
+} from "@/lib/worker-entry";
 
 interface WorkerData {
   person: {
@@ -42,10 +47,11 @@ interface SiteDoc {
 }
 
 /**
- * Rendered by both /w/<token> (QR or saved link) and /w (after a passcode
- * sign-in, where the worker session cookie carries the identity instead).
+ * The signed-in worker screen at /w. Identity comes from the session cookie.
+ * A QR or saved /w/<token> link exchanges first and lands here without the
+ * token still in the path.
  */
-export default function WorkerDashboard({ accessToken }: { accessToken?: string }) {
+export default function WorkerDashboard() {
   const router = useRouter();
 
   const [data, setData] = useState<WorkerData | null>(null);
@@ -67,9 +73,9 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
   const [openDoc, setOpenDoc] = useState<SiteDoc | null>(null);
   const [docAccepted, setDocAccepted] = useState(false);
   const [docSaving, setDocSaving] = useState(false);
+  const [savedToken, setSavedToken] = useState("");
 
-  const credentials = accessToken ? { accessToken } : {};
-  const inductionReturn = accessToken ? `/w/${encodeURIComponent(accessToken)}` : "/w";
+  const credentials = {};
 
   const load = () => {
     setLoading(true);
@@ -99,7 +105,10 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [accessToken]);
+  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    setSavedToken(recalledWorkerToken(sessionStorage));
+  }, []);
 
   useEffect(() => {
     fetch("/api/sites")
@@ -113,9 +122,7 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
   }, []);
 
   const goToInduction = (siteCode: string) => {
-    const query = new URLSearchParams({ return: inductionReturn });
-    if (accessToken) query.set("token", accessToken);
-    router.push(`/induct/${siteCode}?${query}`);
+    router.push(`/induct/${siteCode}?${inductionReturnQuery()}`);
   };
 
   const signIn = async (siteCode: string) => {
@@ -202,7 +209,6 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
     setDocAccepted(false);
     setMessage("");
     const params = new URLSearchParams({ id: String(doc.id) });
-    if (accessToken) params.set("accessToken", accessToken);
     try {
       const res = await fetch(`/api/documents?${params}`);
       const body = await res.json();
@@ -331,8 +337,8 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
   const hasExpiredTicket = tickets.some((c) => c.status === "expired");
 
   const workerDashboardUrl =
-    accessToken && typeof window !== "undefined"
-      ? `${window.location.origin}/w/${accessToken}`
+    savedToken && typeof window !== "undefined"
+      ? workerPersonalQrUrl(window.location.origin, savedToken)
       : "";
 
   return (
@@ -470,19 +476,8 @@ export default function WorkerDashboard({ accessToken }: { accessToken?: string 
               level="M"
             />
             <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 8 }}>
-              Save this QR or bookmark this page to sign in quickly.
+              Save this QR to open your dashboard on this or another phone.
             </p>
-          </div>
-        )}
-
-        {accessToken && (
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontWeight: 600, marginBottom: 8 }}>Your Access Token:</p>
-            <div className="card" style={{ background: "var(--surface)" }}>
-              <p style={{ fontFamily: "monospace", fontSize: "0.75rem", wordBreak: "break-all", userSelect: "all" }}>
-                {accessToken}
-              </p>
-            </div>
           </div>
         )}
 

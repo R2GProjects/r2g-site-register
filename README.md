@@ -120,6 +120,14 @@ page cannot sign in. Sites with no latitude and longitude on file can only be
 signed into via the gate QR. The worker dashboard still lists sites, but
 picking one from the couch is no longer enough.
 
+## Worker dashboard
+
+The signed-in screen is `/w`. A personal QR or a saved link still points at
+`/w/<token>` so another phone can get in, but that page exchanges the token
+for the worker session cookie and replaces the URL with `/w`. In-app buttons
+authenticate first and go straight to `/w`, so the token is not written into
+the address bar from those flows.
+
 ## Gate kiosk
 
 A shared tablet at the gate uses `/kiosk/<site-code>` rather than the personal

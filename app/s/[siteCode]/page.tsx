@@ -7,6 +7,11 @@ import PrivacyNotice from "@/components/PrivacyNotice";
 import ImageCapture from "@/components/ImageCapture";
 import { readDevicePosition } from "@/lib/client-location";
 import { postAttendance, rememberGateToken } from "@/lib/client-offline";
+import {
+  inductionReturnQuery,
+  stashWorkerTokenAndDashboard,
+  WORKER_DASHBOARD_PATH,
+} from "@/lib/worker-entry";
 
 interface SiteData {
   SiteUUID: string;
@@ -68,9 +73,31 @@ export default function SitePage() {
       .finally(() => setLoading(false));
   }, [siteCode]);
 
-  const handleWorkerGo = () => {
+  const handleWorkerGo = async () => {
     const token = accessToken.trim();
-    router.push(token ? `/w/${encodeURIComponent(token)}` : "/w");
+    if (!token) {
+      router.push(WORKER_DASHBOARD_PATH);
+      return;
+    }
+    setSignInError("");
+    setSignInLoading(true);
+    try {
+      const res = await fetch("/api/auth/worker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: token }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSignInError(data.error || "Sign in failed");
+        return;
+      }
+      router.push(stashWorkerTokenAndDashboard(token, sessionStorage));
+    } catch {
+      setSignInError("Network error");
+    } finally {
+      setSignInLoading(false);
+    }
   };
 
   const handleSignIn = async () => {
@@ -85,7 +112,6 @@ export default function SitePage() {
     setQueued(false);
     setSignInLoading(true);
 
-    const dashboard = token ? `/w/${encodeURIComponent(token)}` : "/w";
     let lat: number | undefined;
     let lng: number | undefined;
     try {
@@ -110,14 +136,13 @@ export default function SitePage() {
         setQueued(true);
       } else if (result.status === "error") {
         if (result.data.inductionRequired && result.data.siteCode) {
-          const query = new URLSearchParams({ return: dashboard });
-          if (token) query.set("token", token);
-          router.push(`/induct/${result.data.siteCode}?${query}`);
+          if (token) stashWorkerTokenAndDashboard(token, sessionStorage);
+          router.push(`/induct/${result.data.siteCode}?${inductionReturnQuery()}`);
           return;
         }
         setSignInError(result.error || "Sign in failed");
       } else {
-        router.push(dashboard);
+        router.push(stashWorkerTokenAndDashboard(token, sessionStorage));
       }
     } catch {
       setQueued(true);
@@ -174,10 +199,7 @@ export default function SitePage() {
           accessToken: data.accessToken || null,
         });
       } else {
-        // Redirect to worker dashboard — they're already signed in. A worker we
-        // matched to an existing Approved record gets no new token, but does get a
-        // session cookie, so send them to the token-less dashboard.
-        router.push(data.accessToken ? `/w/${data.accessToken}` : "/w");
+        router.push(stashWorkerTokenAndDashboard(data.accessToken, sessionStorage));
       }
     } catch {
       setRegError("Network error");
@@ -300,7 +322,7 @@ export default function SitePage() {
                 <button className="btn btn-primary btn-block" onClick={handleSignIn} disabled={signInLoading}>
                   {signInLoading ? <div className="spinner" /> : "Sign In"}
                 </button>
-                <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={handleWorkerGo}>
+                <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={handleWorkerGo} disabled={signInLoading}>
                   Go to My Dashboard
                 </button>
                 <button
@@ -327,7 +349,9 @@ export default function SitePage() {
                 <button
                   className="btn btn-primary btn-block"
                   onClick={() =>
-                    router.push(regDone.accessToken ? `/w/${regDone.accessToken}` : "/w")
+                    router.push(
+                      stashWorkerTokenAndDashboard(regDone.accessToken, sessionStorage)
+                    )
                   }
                 >
                   Go to My Dashboard

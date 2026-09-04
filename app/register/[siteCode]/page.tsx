@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import ImageCapture from "@/components/ImageCapture";
+import { stashWorkerTokenAndDashboard } from "@/lib/worker-entry";
 
 export default function RegisterWorkerPage() {
   const params = useParams();
@@ -81,7 +82,7 @@ export default function RegisterWorkerPage() {
             {result.note && (
               <p style={{ marginTop: 8, fontSize: "0.875rem", color: "var(--muted)" }}>{result.note}</p>
             )}
-            <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={() => router.push(`/w/${result.accessToken}`)}>
+            <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={() => router.push(stashWorkerTokenAndDashboard(result.accessToken, sessionStorage))}>
               Go to My Dashboard
             </button>
             <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={() => router.push(`/s/${siteCode}`)}>
