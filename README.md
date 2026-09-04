@@ -20,8 +20,8 @@ docker compose up -d
 Copy `.env.example` to `.env` and fill in:
 - `NOCODB_URL` — NocoDB API URL (default: `http://nocodb:8080`)
 - `NOCODB_API_TOKEN` — NocoDB API token
-- `ADMIN_USERNAME` — Admin login username
-- `ADMIN_PASSWORD` — Admin login password
+- `ADMIN_USERNAME` — Bootstrap admin login username. Named logins are added in Admin → Admins.
+- `ADMIN_PASSWORD` — Bootstrap admin login password
 - `SESSION_SECRET` — HMAC key for admin sessions. **Required in production** — the app will not start without it. Generate with `openssl rand -hex 32`.
 - `CRON_SECRET` — shared secret for the scheduled auto-close, retention and notification jobs. Generate the same way.
 - `AUTO_CLOSE_CUTOFF` — optional, default `18:00`. Site-local time stamped on a forgotten day shift.
@@ -33,6 +33,14 @@ Copy `.env.example` to `.env` and fill in:
 - `DATA_RETENTION_YEARS` — optional, default `7`. Stated in the collection notice; changing it changes the notice version.
 - `PRIVACY_CONTACT` — optional. Named in the notice as who to ask about personal information.
 - `GEOFENCE_RADIUS_METRES` — optional, default `300`. How far from the site pin a GPS sign-in still counts. Fifty to 2000 metres.
+
+## Admin logins
+
+The environment username and password remain a bootstrap account. Admin → Admins
+adds named logins. Corrections, pre-starts, incident stamps and emergency
+sign-outs are recorded against the person who is signed in, not the word
+`admin`. Switching a named login off does not fall through to the environment
+password. The AdminUsers table is created in NocoDB on first use.
 
 ## Induction expiry
 

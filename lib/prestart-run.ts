@@ -127,8 +127,10 @@ export async function listPreStarts(query: PreStartQuery) {
 
 export async function savePreStart(
   input: Record<string, unknown>,
-  now = Date.now()
+  options?: { now?: number; performedBy?: string }
 ): Promise<{ id: number; draft: PreStartDraft } | { error: string; status: number }> {
+  const now = options?.now ?? Date.now();
+  const performedBy = options?.performedBy?.trim() || "admin";
   const parsed = validatePreStart(input, now);
   if (!parsed.ok) {
     const message =
@@ -165,7 +167,7 @@ export async function savePreStart(
       AuditUUID: generateUUID(),
       EventType: "PreStartUpdated",
       Site: String(parsed.draft.siteId),
-      PerformedBy: "admin",
+      PerformedBy: performedBy,
       Source: "AdminPanel",
       OldValue: String(existing.Roll ?? ""),
       NewValue: fields.Roll,
@@ -183,7 +185,7 @@ export async function savePreStart(
     AuditUUID: generateUUID(),
     EventType: "PreStartHeld",
     Site: String(parsed.draft.siteId),
-    PerformedBy: "admin",
+    PerformedBy: performedBy,
     Source: "AdminPanel",
     NewValue: fields.Roll,
     CreatedAt1: nowStamp,
@@ -198,4 +200,3 @@ export async function refreshPreStartRoll(
   const onSite = await listOnSiteAttendees(siteId);
   return mergeAttendees(parseRoll(attendees), onSite);
 }
-

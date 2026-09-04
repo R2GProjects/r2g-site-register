@@ -58,22 +58,43 @@ export function verifyToken(token: string): SessionPayload | null {
   }
 }
 
-export function createSession(): string {
+export function createSession(username: string): string {
+  const u = String(username ?? "").trim() || "admin";
   return signPayload({
-    u: process.env.ADMIN_USERNAME || "admin",
+    u,
     exp: Date.now() + SESSION_TTL,
   });
 }
 
-export function verifySession(request: Request): boolean {
+function sessionCookie(request: Request): string | null {
   const cookie = request.headers.get("cookie") || "";
   const match = cookie.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
-  if (!match) return false;
-  return verifyToken(match[1]) !== null;
+  return match?.[1] ?? null;
+}
+
+export function verifySession(request: Request): boolean {
+  return readAdminActor(request) !== null;
+}
+
+/**
+ * The name stored on the session cookie — the login or display name of the
+ * person who signed in. Null when there is no valid admin session.
+ */
+export function readAdminActor(request: Request): string | null {
+  const token = sessionCookie(request);
+  if (!token) return null;
+  const payload = verifyToken(token);
+  const name = String(payload?.u ?? "").trim();
+  return name || null;
+}
+
+/** Same as readAdminActor, with "admin" only when the cookie is missing. */
+export function adminActor(request: Request): string {
+  return readAdminActor(request) || "admin";
 }
 
 export async function validateAdminAuth(request: Request): Promise<boolean> {
-  return verifySession(request);
+  return readAdminActor(request) !== null;
 }
 
 interface WorkerSessionPayload {
@@ -201,6 +222,28 @@ export function verifyPasscode(passcode: string, stored: string | null | undefin
   const [, salt, key] = String(stored).split("$");
   if (!salt || !key) return false;
   const candidate = crypto.scryptSync(normalized, salt, SCRYPT_KEYLEN).toString("hex");
+  return safeEqual(candidate, key);
+}
+
+/** Admin passwords are case-sensitive; worker passcodes are not. */
+export function hashAdminPassword(password: string): string {
+  const salt = crypto.randomBytes(SCRYPT_SALT_BYTES).toString("hex");
+  const key = crypto
+    .scryptSync(password.trim(), salt, SCRYPT_KEYLEN)
+    .toString("hex");
+  return `${PASSCODE_SCHEME}$${salt}$${key}`;
+}
+
+export function verifyAdminPassword(
+  password: string,
+  stored: string | null | undefined
+): boolean {
+  if (!stored || !password) return false;
+  const [, salt, key] = String(stored).split("$");
+  if (!salt || !key) return false;
+  const candidate = crypto
+    .scryptSync(password.trim(), salt, SCRYPT_KEYLEN)
+    .toString("hex");
   return safeEqual(candidate, key);
 }
 

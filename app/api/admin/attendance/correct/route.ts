@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TABLES, update, create, getOne, numericId } from "@/lib/nocodb";
-import { validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
+import { adminActor, validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
 
 export async function POST(request: Request) {
   if (!(await validateAdminAuth(request))) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       Person: String(existing.People_id || existing.Person || ""),
       Attendance: String(attendanceId),
       Site: String(existing.Sites_id || existing.Site || ""),
-      PerformedBy: "admin",
+      PerformedBy: adminActor(request),
       Source: "AdminPanel",
       OldValue: oldValue,
       NewValue: newValue,

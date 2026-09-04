@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateAdminAuth } from "@/lib/auth";
+import { adminActor, validateAdminAuth } from "@/lib/auth";
 import { numericId } from "@/lib/nocodb";
 import {
   getPreStart,
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         attendees: await refreshPreStartRoll(body.attendees, siteId),
       });
     }
-    const saved = await savePreStart(body);
+    const saved = await savePreStart(body, { performedBy: adminActor(request) });
     if ("error" in saved) {
       return NextResponse.json({ error: saved.error }, { status: saved.status });
     }

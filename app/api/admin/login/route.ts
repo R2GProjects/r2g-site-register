@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSession, safeEqual, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
+import {
+  createSession,
+  SESSION_COOKIE,
+  SESSION_MAX_AGE,
+} from "@/lib/auth";
 import { clearRateLimit, guard, MINUTE } from "@/lib/rate-limit";
+import { verifyAdminLogin } from "@/lib/admin-run";
 
 export async function POST(request: Request) {
   try {
@@ -22,15 +27,14 @@ export async function POST(request: Request) {
     });
     if (limit.blocked) return limit.blocked;
 
-    const userOk = safeEqual(user, envUser.trim());
-    const passOk = safeEqual(pass, envPass.trim());
-    if (!userOk || !passOk) {
+    const actor = await verifyAdminLogin(user, pass);
+    if (!actor) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
     clearRateLimit(limit.key);
 
-    const token = createSession();
+    const token = createSession(actor);
     const resp = NextResponse.json({ ok: true });
     resp.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,

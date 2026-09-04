@@ -321,6 +321,30 @@ export async function ensureDocumentAckTable(): Promise<string> {
   return documentAckTableId;
 }
 
+const ADMIN_USER_COLUMNS: Array<{ title: string; uidt: string }> = [
+  { title: "AdminUUID", uidt: "SingleLineText" },
+  { title: "Username", uidt: "SingleLineText" },
+  { title: "DisplayName", uidt: "SingleLineText" },
+  { title: "PasswordHash", uidt: "SingleLineText" },
+  { title: "Active", uidt: "SingleLineText" },
+  { title: "CreatedAt1", uidt: "DateTime" },
+  { title: "UpdatedAt1", uidt: "DateTime" },
+];
+
+let adminUserTableId: Promise<string> | null = null;
+
+/** Named admin logins. Created on first use. */
+export async function ensureAdminUserTable(): Promise<string> {
+  if (!adminUserTableId) {
+    adminUserTableId = ensureRuntimeTable(
+      "admin-users",
+      "AdminUsers",
+      ADMIN_USER_COLUMNS
+    );
+  }
+  return adminUserTableId;
+}
+
 export async function list<T>(
   tableId: string,
   params?: {

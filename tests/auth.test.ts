@@ -66,6 +66,21 @@ describe("passcode hashing", () => {
   });
 });
 
+describe("admin session", () => {
+  it("stores the person who signed in, not a shared admin label", () => {
+    const token = auth.createSession("Sam Chen");
+    expect(auth.verifyToken(token)?.u).toBe("Sam Chen");
+  });
+});
+
+describe("admin password hashing", () => {
+  it("is case-sensitive, unlike a worker passcode", () => {
+    const hash = auth.hashAdminPassword("Secret99");
+    expect(auth.verifyAdminPassword("Secret99", hash)).toBe(true);
+    expect(auth.verifyAdminPassword("secret99", hash)).toBe(false);
+  });
+});
+
 describe("visitor pass", () => {
   it("round-trips the visit it was issued for", () => {
     const token = auth.createVisitorPass(42, 987);

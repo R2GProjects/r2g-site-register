@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, update, create, numericId } from "@/lib/nocodb";
-import { validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
+import { adminActor, validateAdminAuth, nowISO, getClientIP, generateUUID } from "@/lib/auth";
 
 export async function POST(request: Request) {
   if (!(await validateAdminAuth(request))) {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         Person: String(att.People_id || ""),
         Attendance: String(att.Id),
         Site: String(att.Sites_id || ""),
-        PerformedBy: "admin",
+        PerformedBy: adminActor(request),
         Source: "EmergencyBulkSignOut",
         OldValue: JSON.stringify({ Status: "OnSite" }),
         NewValue: JSON.stringify({ Status: "EmergencyEvacuated", SignOutTime: now }),

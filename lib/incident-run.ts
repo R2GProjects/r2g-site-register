@@ -167,6 +167,7 @@ export async function updateIncident(input: {
   id: number;
   status?: unknown;
   adminNotes?: unknown;
+  performedBy?: string;
 }): Promise<{ ok: true } | { error: string; status: number }> {
   let nextStatus: string | undefined;
   if (input.status != null && String(input.status).trim() !== "") {
@@ -188,7 +189,7 @@ export async function updateIncident(input: {
     EventType: "IncidentUpdated",
     Site: String(existing.Sites_id || ""),
     Person: String(existing.People_id || ""),
-    PerformedBy: "admin",
+    PerformedBy: input.performedBy?.trim() || "admin",
     Source: "AdminPanel",
     OldValue: String(existing.Status || ""),
     NewValue: String(fields.Status ?? existing.Status ?? ""),

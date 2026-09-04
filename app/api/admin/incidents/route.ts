@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateAdminAuth } from "@/lib/auth";
+import { adminActor, validateAdminAuth } from "@/lib/auth";
 import { allowedValue, numericId } from "@/lib/nocodb";
 import { INCIDENT_STATUSES } from "@/lib/incident";
 import { listIncidents, updateIncident } from "@/lib/incident-run";
@@ -34,6 +34,7 @@ export async function PATCH(request: Request) {
       id,
       status: body.Status ?? body.status,
       adminNotes: body.AdminNotes ?? body.adminNotes,
+      performedBy: adminActor(request),
     });
     if ("error" in saved) {
       return NextResponse.json({ error: saved.error }, { status: saved.status });
