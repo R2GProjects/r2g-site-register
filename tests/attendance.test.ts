@@ -5,8 +5,10 @@ import {
   dayKey,
   formatHours,
   hoursLogged,
+  includeAttendanceSummary,
   parseClockTime,
   siteLocalInstant,
+  thisMonthRange,
 } from "@/lib/attendance";
 
 /** Sydney wall-clock time as a UTC ISO string, for readable fixtures. */
@@ -215,5 +217,43 @@ describe("buildAttendanceSummary", () => {
     expect(summary.totalHours).toBe(0);
     expect(summary.byDay).toEqual([]);
     expect(summary.onsiteNames).toEqual([]);
+  });
+});
+
+describe("thisMonthRange", () => {
+  it("starts on the first of the site-local month", () => {
+    const now = Date.parse("2026-09-04T02:00:00Z");
+    expect(thisMonthRange(now)).toEqual({ from: "2026-09-01", to: "2026-09-04" });
+  });
+
+  it("uses the site-local date when UTC is still yesterday", () => {
+    const now = Date.parse("2026-09-03T21:00:00Z");
+    expect(thisMonthRange(now)).toEqual({ from: "2026-09-01", to: "2026-09-04" });
+  });
+
+  it("rolls to the new month at local midnight", () => {
+    const now = Date.parse("2026-08-31T14:00:00Z");
+    expect(thisMonthRange(now)).toEqual({ from: "2026-09-01", to: "2026-09-01" });
+  });
+});
+
+describe("includeAttendanceSummary", () => {
+  it("rebuilds on the first page of a filter", () => {
+    expect(includeAttendanceSummary(0, undefined)).toBe(true);
+  });
+
+  it("does not rebuild when only the page changes", () => {
+    expect(includeAttendanceSummary(1, undefined)).toBe(false);
+    expect(includeAttendanceSummary(2, null)).toBe(false);
+  });
+
+  it("can be forced on or off", () => {
+    expect(includeAttendanceSummary(3, "1")).toBe(true);
+    expect(includeAttendanceSummary(3, true)).toBe(true);
+    expect(includeAttendanceSummary(0, "0")).toBe(false);
+  });
+
+  it("does not treat the string true as a force", () => {
+    expect(includeAttendanceSummary(1, "true")).toBe(false);
   });
 });

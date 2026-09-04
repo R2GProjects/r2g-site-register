@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { dayKey, formatDay, formatHours, formatTime, personName } from "@/lib/attendance";
+import { dayKey, formatDay, formatHours, formatTime, personName, thisMonthRange } from "@/lib/attendance";
 import type { DayPerson } from "@/lib/attendance";
 
 interface Filters {
@@ -10,7 +10,10 @@ interface Filters {
   to: string;
 }
 
-const NO_FILTERS: Filters = { status: "", siteId: "", from: "", to: "" };
+function defaultFilters(): Filters {
+  const { from, to } = thisMonthRange();
+  return { status: "", siteId: "", from, to };
+}
 
 /** Calendar day in the site's timezone, offset by whole days. */
 function siteDay(offsetDays = 0): string {
@@ -41,10 +44,11 @@ export default function AttendancePage() {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [capped, setCapped] = useState(false);
   const [summary, setSummary] = useState<AttendanceSummary>({
     totalHours: 0,
     onsiteNames: [],
@@ -65,18 +69,22 @@ export default function AttendancePage() {
     const params = filterParams(f);
     params.set("page", String(p));
     params.set("limit", "50");
+    if (p > 0) params.set("summary", "0");
     fetch(`/api/admin/attendance?${params}`)
       .then(r => r.json())
       .then(data => {
         setItems(data.list || []);
         setTotal(data.totalRows || 0);
-        if (data.summary) setSummary(data.summary);
+        if (data.summary) {
+          setSummary(data.summary);
+          setCapped(Boolean(data.capped));
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(0, NO_FILTERS); }, [load]);
+  useEffect(() => { load(0, defaultFilters()); }, [load]);
 
   useEffect(() => {
     fetch("/api/admin/sites?limit=200")
@@ -94,7 +102,13 @@ export default function AttendancePage() {
   };
 
   const dateRangeInvalid = Boolean(filters.from && filters.to && filters.from > filters.to);
-  const hasFilters = Boolean(filters.status || filters.siteId || filters.from || filters.to);
+  const defaults = defaultFilters();
+  const hasFilters = Boolean(
+    filters.status ||
+    filters.siteId ||
+    filters.from !== defaults.from ||
+    filters.to !== defaults.to
+  );
 
   const toggleDay = (date: string) => {
     setExpandedDays(prev => {
@@ -199,7 +213,7 @@ export default function AttendancePage() {
           </div>
 
           {hasFilters && (
-            <button className="btn btn-secondary" onClick={() => applyFilters(NO_FILTERS)}>
+            <button className="btn btn-secondary" onClick={() => applyFilters(defaultFilters())}>
               Clear filters
             </button>
           )}
@@ -231,7 +245,10 @@ export default function AttendancePage() {
           <button
             className="btn btn-secondary"
             style={{ minHeight: 30, padding: "3px 10px", fontSize: "0.8rem" }}
-            onClick={() => applyFilters({ from: `${siteDay().slice(0, 7)}-01`, to: siteDay() })}
+            onClick={() => {
+              const { from, to } = thisMonthRange();
+              applyFilters({ from, to });
+            }}
           >
             This month
           </button>
@@ -257,6 +274,11 @@ export default function AttendancePage() {
         <div className="card">
           <p style={{ fontSize: "1.75rem", fontWeight: 700 }}>{formatHours(summary.totalHours)}</p>
           <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Total hours logged</p>
+          {capped && (
+            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 4 }}>
+              Summary covers the 2,000 most recent matching records. Narrow the dates.
+            </p>
+          )}
         </div>
         <div className="card">
           <p style={{ fontSize: "1.75rem", fontWeight: 700 }}>{summary.onsiteNames.length}</p>

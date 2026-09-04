@@ -299,8 +299,10 @@ Preview with `?dryRun=1`. Same secret and admin-session fallback as auto-close.
 
 Admin → Timesheets rolls the same hours the daily register uses into a
 per-person and per-company report. Filter by site, company, person and a
-date range (this month is the default). Open shifts are included and
-flagged — close them before using the numbers for pay or invoice.
+date range (this month is the default). Admin → Attendance uses the same
+window, and paging the table does not rebuild the hours summary. Open shifts
+are included and flagged — close them before using the numbers for pay or
+invoice.
 
 A visitor who typed a company name is folded into that company when the
 names match, so one contractor is not invoiced twice. Hours sit on the

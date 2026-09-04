@@ -197,3 +197,25 @@ export function buildAttendanceSummary(records: Array<Record<string, unknown>>) 
       })),
   };
 }
+
+/** First and last site-local calendar days of the current month. */
+export function thisMonthRange(
+  now = Date.now(),
+  timeZone = SITE_TIMEZONE
+): { from: string; to: string } {
+  const to = dayKey(new Date(now).toISOString(), timeZone);
+  const from = to ? `${to.slice(0, 7)}-01` : "";
+  return { from, to };
+}
+
+/**
+ * Rebuild the hours summary on the first page of a filter, not on every
+ * page click. `summary=1` forces it; `summary=0` skips it. Only the stored
+ * flag "1" or boolean true count as a force — not the string "true".
+ */
+export function includeAttendanceSummary(page: number, summary: unknown): boolean {
+  if (summary === "0") return false;
+  if (summary === true || summary === "1") return true;
+  return page <= 0;
+}
+

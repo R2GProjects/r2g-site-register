@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server";
 import { TABLES, list, listPage, attachSiteDetails, attachPersonDetails, attachVisitorDetails, allowedValue, numericId } from "@/lib/nocodb";
 import { validateAdminAuth } from "@/lib/auth";
-import { buildAttendanceSummary, dayBoundaryISO, hoursLogged } from "@/lib/attendance";
+import {
+  buildAttendanceSummary,
+  dayBoundaryISO,
+  hoursLogged,
+  includeAttendanceSummary,
+} from "@/lib/attendance";
 
 const ATTENDANCE_STATUSES = ["OnSite", "SignedOut", "EmergencyEvacuated", "AutoClosed"] as const;
+const SUMMARY_FIELDS =
+  "Id,SignInTime,SignOutTime,Status,Person,People_id,Visitor,Visitors_id";
 
 async function enrichAttendance(records: Array<Record<string, unknown>>) {
   const withSites = await attachSiteDetails(records);
   const withPeople = await attachPersonDetails(withSites);
+  return attachVisitorDetails(withPeople);
+}
+
+async function enrichSummary(records: Array<Record<string, unknown>>) {
+  const withPeople = await attachPersonDetails(records);
   return attachVisitorDetails(withPeople);
 }
 
@@ -46,20 +58,28 @@ export async function GET(request: Request) {
       offset,
       sort: "-SignInTime",
     });
-    const all = await list<Record<string, unknown>>(TABLES.Attendance, {
-      where,
-      limit: 2000,
-      sort: "-SignInTime",
-    });
     const listRows = await enrichAttendance(result.list);
-    const summaryRows = await enrichAttendance(all);
+    const wantSummary = includeAttendanceSummary(page, searchParams.get("summary"));
+    let summary = null;
+    let capped = false;
+    if (wantSummary) {
+      const all = await list<Record<string, unknown>>(TABLES.Attendance, {
+        where,
+        limit: 2000,
+        sort: "-SignInTime",
+        fields: SUMMARY_FIELDS,
+      });
+      capped = all.length >= 2000;
+      summary = buildAttendanceSummary(await enrichSummary(all));
+    }
     return NextResponse.json({
       ...result,
       list: listRows.map(row => ({
         ...row,
         Hours: hoursLogged(row.SignInTime, row.SignOutTime),
       })),
-      summary: buildAttendanceSummary(summaryRows),
+      summary,
+      capped,
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

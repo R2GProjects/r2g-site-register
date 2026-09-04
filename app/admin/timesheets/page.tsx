@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { dayKey, formatDay, formatHours, formatTime } from "@/lib/attendance";
+import { dayKey, formatDay, formatHours, formatTime, thisMonthRange } from "@/lib/attendance";
 import { hoursDecimal, type CompanyTimesheet, type PersonTimesheet } from "@/lib/timesheet";
 
 interface Filters {
@@ -20,8 +20,7 @@ function thisMonth(): Filters {
     siteId: "",
     companyId: "",
     personId: "",
-    from: `${siteDay().slice(0, 7)}-01`,
-    to: siteDay(),
+    ...thisMonthRange(),
   };
 }
 
@@ -284,7 +283,7 @@ export default function TimesheetsPage() {
           <button
             className="btn btn-secondary"
             style={{ minHeight: 30, padding: "3px 10px", fontSize: "0.8rem" }}
-            onClick={() => applyFilters({ from: `${siteDay().slice(0, 7)}-01`, to: siteDay() })}
+            onClick={() => applyFilters(thisMonthRange())}
           >
             This month
           </button>
