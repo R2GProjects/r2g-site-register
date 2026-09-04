@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { readDevicePosition } from "@/lib/client-location";
 import { postAttendance } from "@/lib/client-offline";
 import type { CredentialState } from "@/lib/credentials";
-import { DOCUMENT_KIND_LABEL, type DocumentKind } from "@/lib/documents";
+import { DOCUMENT_KIND_LABEL, type DocumentKind } from "@/lib/document-kinds";
 import { INCIDENT_KIND_LABEL, type IncidentKind } from "@/lib/incident";
 
 interface WorkerData {

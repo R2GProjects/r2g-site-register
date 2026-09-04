@@ -9,15 +9,14 @@
  */
 
 import { contentVersion } from "@/lib/content-version";
+import { documentKind, type DocumentKind } from "@/lib/document-kinds";
 
-export const DOCUMENT_KINDS = ["swms", "procedure", "other"] as const;
-export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
-
-export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
-  swms: "SWMS",
-  procedure: "Procedure",
-  other: "Document",
-};
+export {
+  DOCUMENT_KIND_LABEL,
+  DOCUMENT_KINDS,
+  documentKind,
+  type DocumentKind,
+} from "@/lib/document-kinds";
 
 export const MAX_DOCUMENT_CHARS = 50_000;
 export const MAX_DOCUMENT_URL = 500;
@@ -64,14 +63,6 @@ function asId(value: unknown): number | null {
   }
   const parsed = Number.parseInt(String(value ?? "").trim(), 10);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-export function documentKind(value: unknown): DocumentKind | null {
-  const raw = String(value ?? "").trim().toLowerCase();
-  if (raw === "swms") return "swms";
-  if (raw === "procedure" || raw === "procedures") return "procedure";
-  if (raw === "other" || raw === "document" || raw === "") return "other";
-  return null;
 }
 
 /** Required is the boolean true, or the stored flag "1". Nothing else. */

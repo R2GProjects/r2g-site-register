@@ -4,7 +4,7 @@ import {
   DOCUMENT_KIND_LABEL,
   DOCUMENT_KINDS,
   type DocumentKind,
-} from "@/lib/documents";
+} from "@/lib/document-kinds";
 
 interface SiteOption {
   Id: number;
